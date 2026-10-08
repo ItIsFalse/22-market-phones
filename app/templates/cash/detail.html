@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}{{ account.name }} — Касса{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <a href="{{ url_for('cash.list_accounts') }}" class="text-decoration-none small text-muted">
+            &larr; К списку счетов
+        </a>
+        <h1 class="h3 mb-1 mt-2">{{ account.name }}</h1>
+        <div>
+            {% if account.currency == 'USD' %}
+                <span class="badge bg-success">USD</span>
+            {% else %}
+                <span class="badge bg-secondary">UZS</span>
+            {% endif %}
+        </div>
+    </div>
+    <div class="text-end">
+        <div class="text-muted small">Текущий баланс</div>
+        <div class="fs-3 fw-bold {% if account.balance < 0 %}text-danger{% endif %}">
+            {% if account.currency == 'USD' %}
+                $ {{ '{:,.2f}'.format(account.balance) }}
+            {% else %}
+                {{ '{:,.0f}'.format(account.balance).replace(',', ' ') }} сум
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <h2 class="h6 mb-3">Ручная операция</h2>
+
+                <form method="post" action="{{ url_for('cash.add_transaction', account_id=account.id) }}">
+                    <div class="mb-3">
+                        <label class="form-label">Тип</label>
+                        <select name="type" class="form-select" required>
+                            <option value="income">Приход</option>
+                            <option value="expense">Расход</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Сумма</label>
+                        <input type="text" name="amount" class="form-control" required
+                               placeholder="0">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Описание</label>
+                        <input type="text" name="description" class="form-control"
+                               placeholder="Например: оплата аренды">
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100">Провести</button>
+                </form>
+            </div>
+        </div>
+
+        <form method="post" action="{{ url_for('cash.account_delete', account_id=account.id) }}"
+              onsubmit="return confirm('Удалить счёт вместе со всей историей?');">
+            <button type="submit" class="btn btn-outline-danger w-100">Удалить счёт</button>
+        </form>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h2 class="h6 mb-3">История операций</h2>
+
+                {% if transactions %}
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Дата</th>
+                                <th>Тип</th>
+                                <th class="text-end">Сумма</th>
+                                <th>Описание</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for tx in transactions %}
+                            <tr>
+                                <td class="text-nowrap text-muted small">
+                                    {{ tx.created_at.strftime('%d.%m.%Y %H:%M') }}
+                                </td>
+                                <td>
+                                    {% if tx.type == 'income' %}
+                                        <span class="badge bg-success-subtle text-success">Приход</span>
+                                    {% else %}
+                                        <span class="badge bg-danger-subtle text-danger">Расход</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end fw-semibold
+                                    {% if tx.type == 'income' %}text-success{% else %}text-danger{% endif %}">
+                                    {% if tx.type == 'income' %}+{% else %}&minus;{% endif %}
+                                    {% if tx.currency == 'USD' %}
+                                        $ {{ '{:,.2f}'.format(tx.amount) }}
+                                    {% else %}
+                                        {{ '{:,.0f}'.format(tx.amount).replace(',', ' ') }}
+                                    {% endif %}
+                                </td>
+                                <td class="text-muted small">
+                                    {{ tx.description or '—' }}
+                                    {% if tx.source_type and tx.source_type != 'manual' %}
+                                        <span class="badge bg-light text-dark">{{ tx.source_type }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                    <p class="text-muted mb-0">Операций пока нет.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

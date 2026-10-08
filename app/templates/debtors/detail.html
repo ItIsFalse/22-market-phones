@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}{{ debtor.full_name }} — Должник{% endblock %}
+
+{% block content %}
+
+<a href="{{ url_for('debtors.list_debtors') }}" class="text-decoration-none small text-muted">
+    &larr; К списку должников
+</a>
+
+<div class="d-flex justify-content-between align-items-start mb-4 mt-2">
+    <div>
+        <h1 class="h3 mb-1">{{ debtor.full_name }}</h1>
+        <div class="text-muted">
+            {{ debtor.phone or 'Телефон не указан' }}
+            {% if debtor.loan_date %} · с {{ debtor.loan_date.strftime('%d.%m.%Y') }}{% endif %}
+        </div>
+        {% if debtor.note %}
+            <div class="text-muted small mt-2">{{ debtor.note }}</div>
+        {% endif %}
+    </div>
+    <div class="text-end">
+        <div class="text-muted small">Текущий долг</div>
+        <div class="fs-5 {% if debtor.debt_uzs > 0 %}text-danger{% elif debtor.debt_uzs < 0 %}text-success{% endif %}">
+            {% if debtor.debt_uzs %}
+                {{ '{:,.0f}'.format(debtor.debt_uzs).replace(',', ' ') }} сум
+            {% else %}
+                <span class="text-muted">0 сум</span>
+            {% endif %}
+        </div>
+        <div class="fs-5 {% if debtor.debt_usd > 0 %}text-danger{% elif debtor.debt_usd < 0 %}text-success{% endif %}">
+            {% if debtor.debt_usd %}
+                $ {{ '{:,.0f}'.format(debtor.debt_usd).replace(',', ' ') }}
+            {% else %}
+                <span class="text-muted">$ 0</span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <h2 class="h6 mb-3">Новая операция</h2>
+
+                <form method="post" action="{{ url_for('debtors.add_transaction', debtor_id=debtor.id) }}">
+                    <div class="mb-3">
+                        <label class="form-label">Тип</label>
+                        <select name="type" class="form-select" required>
+                            <option value="borrow">Взял в долг (долг растёт)</option>
+                            <option value="repay">Вернул (долг уменьшается)</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Сумма</label>
+                        <input type="text" name="amount" class="form-control" required placeholder="0">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Валюта</label>
+                        <select name="currency" class="form-select" required>
+                            <option value="UZS">UZS</option>
+                            <option value="USD">USD</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Комментарий</label>
+                        <input type="text" name="comment" class="form-control">
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100">Провести</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="d-grid gap-2">
+            <a href="{{ url_for('debtors.edit_debtor', debtor_id=debtor.id) }}"
+               class="btn btn-outline-secondary">Редактировать данные</a>
+
+            <form method="post" action="{{ url_for('debtors.delete_debtor', debtor_id=debtor.id) }}"
+                  onsubmit="return confirm('Удалить должника и всю историю?');">
+                <button type="submit" class="btn btn-outline-danger w-100">Удалить должника</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h2 class="h6 mb-3">История операций</h2>
+
+                {% if transactions %}
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Дата</th>
+                                <th>Тип</th>
+                                <th class="text-end">Сумма</th>
+                                <th>Комментарий</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for tx in transactions %}
+                            <tr>
+                                <td class="text-nowrap text-muted small">
+                                    {{ tx.date.strftime('%d.%m.%Y %H:%M') }}
+                                </td>
+                                <td>
+                                    {% if tx.type == 'borrow' %}
+                                        <span class="badge bg-danger-subtle text-danger">Взял</span>
+                                    {% else %}
+                                        <span class="badge bg-success-subtle text-success">Вернул</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end fw-semibold">
+                                    {% if tx.currency == 'USD' %}
+                                        $ {{ '{:,.0f}'.format(tx.amount).replace(',', ' ') }}
+                                    {% else %}
+                                        {{ '{:,.0f}'.format(tx.amount).replace(',', ' ') }} сум
+                                    {% endif %}
+                                </td>
+                                <td class="text-muted small">{{ tx.comment or '—' }}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                    <p class="text-muted mb-0">Операций пока нет.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

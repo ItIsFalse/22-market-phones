@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block title %}Рассрочки — 22 Market Phone{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-2">
+    <h1 class="h3 mb-0">Рассрочки</h1>
+    <a href="{{ url_for('installments.new_installment') }}" class="btn btn-primary">Новая рассрочка</a>
+</div>
+
+<form method="get" class="card shadow-sm mb-3">
+    <div class="card-body py-3">
+        <div class="d-flex gap-2">
+            <input type="text" name="q" class="form-control"
+                   placeholder="Поиск: покупатель, телефон, IMEI…"
+                   value="{{ filters.q }}"
+                   autofocus>
+
+            <button type="submit" class="btn btn-primary">Найти</button>
+
+            <button type="button" class="btn btn-outline-secondary"
+                    data-filter-toggle
+                    title="Фильтры">
+                Фильтры
+                {% if filters.status or filters.currency or (filters.sort and filters.sort != 'date_desc') %}
+                    <span class="badge bg-primary ms-1">!</span>
+                {% endif %}
+            </button>
+
+            {% if filters.q or filters.status or filters.currency or (filters.sort and filters.sort != 'date_desc') %}
+                <a href="{{ url_for('installments.list_installments') }}"
+                   class="btn btn-outline-secondary">Сбросить</a>
+            {% endif %}
+        </div>
+
+        {% if filters.q or filters.status or filters.currency or (filters.sort and filters.sort != 'date_desc') %}
+            <div class="text-muted small mt-2">Найдено: {{ installments|length }}</div>
+        {% endif %}
+    </div>
+</form>
+
+{# ===== Панель фильтров ===== #}
+<div class="filter-overlay" data-filter-overlay></div>
+
+<aside class="filter-panel" data-filter-panel>
+    <div class="filter-panel-header">
+        <strong>Фильтры</strong>
+        <button type="button" class="btn-close" data-filter-close></button>
+    </div>
+
+    <div class="filter-panel-body">
+        <div class="mb-3">
+            <label class="form-label small text-muted mb-1">Статус</label>
+            <select name="status" form="filter-form" class="form-select">
+                <option value="">Все</option>
+                <option value="active" {% if filters.status == 'active' %}selected{% endif %}>Активные</option>
+                <option value="closed" {% if filters.status == 'closed' %}selected{% endif %}>Закрытые</option>
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label small text-muted mb-1">Валюта</label>
+            <select name="currency" form="filter-form" class="form-select">
+                <option value="">Все</option>
+                <option value="USD" {% if filters.currency == 'USD' %}selected{% endif %}>USD</option>
+                <option value="UZS" {% if filters.currency == 'UZS' %}selected{% endif %}>UZS</option>
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label small text-muted mb-1">Сортировка</label>
+            <select name="sort" form="filter-form" class="form-select">
+                <option value="date_desc" {% if filters.sort == 'date_desc' %}selected{% endif %}>Новые сначала</option>
+                <option value="date_asc" {% if filters.sort == 'date_asc' %}selected{% endif %}>Старые сначала</option>
+                <option value="price_asc" {% if filters.sort == 'price_asc' %}selected{% endif %}>Цена ↑</option>
+                <option value="price_desc" {% if filters.sort == 'price_desc' %}selected{% endif %}>Цена ↓</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="filter-panel-footer">
+        <button type="submit" form="filter-form" class="btn btn-primary flex-grow-1">Применить</button>
+        <a href="{{ url_for('installments.list_installments') }}" class="btn btn-outline-secondary">Сбросить</a>
+    </div>
+</aside>
+
+<form id="filter-form" method="get" class="d-none">
+    <input type="hidden" name="q" value="{{ filters.q }}">
+</form>
+
+{% include "_columns_control.html" %}
+
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle" data-columns-table="installments">
+            <thead class="table-light">
+                <tr>
+                    <th data-col-key="date">Дата</th>
+                    <th data-col-key="brand">Бренд</th>
+                    <th data-col-key="model">Модель</th>
+                    <th data-col-key="imei">IMEI</th>
+                    <th data-col-key="customer">Покупатель</th>
+                    <th data-col-key="phone">Телефон покупателя</th>
+                    <th data-col-key="months" class="text-end">Срок</th>
+                    <th data-col-key="price" class="text-end">Цена</th>
+                    <th data-col-key="prepayment" class="text-end">Предоплата</th>
+                    <th data-col-key="total" class="text-end">Итого с %</th>
+                    <th data-col-key="paid" class="text-end">Оплачено</th>
+                    <th data-col-key="debt" class="text-end">Остаток</th>
+                    <th data-col-key="status">Статус</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for inst in installments %}
+                <tr data-href="{{ url_for('installments.installment_detail', installment_id=inst.id) }}"
+                    style="cursor: pointer;">
+                    <td data-col-key="date" class="text-nowrap text-muted small">
+                        {{ inst.started_at.strftime('%d.%m.%Y') }}
+                    </td>
+                    <td data-col-key="brand" class="fw-semibold">{{ inst.phone.brand }}</td>
+                    <td data-col-key="model">{{ inst.phone.model }}</td>
+                    <td data-col-key="imei" class="text-muted small">{{ inst.phone.imei or '—' }}</td>
+                    <td data-col-key="customer">
+                        <a href="{{ url_for('customers.customer_detail', customer_id=inst.customer.id) }}"
+                           class="text-decoration-none">
+                            {{ inst.customer.full_name }}
+                        </a>
+                    </td>
+                    <td data-col-key="phone" class="text-muted small">{{ inst.customer.phone }}</td>
+                    <td data-col-key="months" class="text-end">{{ inst.months }}</td>
+                    <td data-col-key="price" class="text-end">
+                        $ {{ '{:,.0f}'.format(inst.price).replace(',', ' ') }}
+                    </td>
+                    <td data-col-key="prepayment" class="text-end">
+                        $ {{ '{:,.0f}'.format(inst.prepayment).replace(',', ' ') }}
+                    </td>
+                    <td data-col-key="total" class="text-end">
+                        $ {{ '{:,.0f}'.format(inst.total_with_percent).replace(',', ' ') }}
+                    </td>
+                    <td data-col-key="paid" class="text-end text-success">
+                        $ {{ '{:,.0f}'.format(inst.paid_total).replace(',', ' ') }}
+                    </td>
+                    <td data-col-key="debt" class="text-end">
+                        {% set left = inst.debt_left %}
+                        {% if left > 0 %}
+                            <span class="text-danger fw-semibold">$ {{ '{:,.0f}'.format(left).replace(',', ' ') }}</span>
+                        {% else %}
+                            <span class="text-success">$ 0</span>
+                        {% endif %}
+                    </td>
+                    <td data-col-key="status">
+                        {% if inst.is_closed %}
+                            <span class="badge bg-secondary">Закрыта</span>
+                        {% else %}
+                            <span class="badge bg-info text-dark">Активна</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% else %}
+                <tr>
+                    <td colspan="13" class="text-center text-muted py-4">
+                        Рассрочек пока нет.
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

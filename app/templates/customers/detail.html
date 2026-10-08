@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}{{ customer.full_name }} — Покупатель{% endblock %}
+
+{% block content %}
+
+<a href="{{ url_for('customers.list_customers') }}" class="text-decoration-none small text-muted">
+    &larr; К списку покупателей
+</a>
+
+<div class="d-flex justify-content-between align-items-start mb-4 mt-2">
+    <div>
+        <h1 class="h3 mb-1">{{ customer.full_name }}</h1>
+        <div class="text-muted">{{ customer.phone }}{% if customer.phone_extra %} · {{ customer.phone_extra }}{% endif %}</div>
+        {% if customer.address %}
+            <div class="text-muted small mt-1">{{ customer.address }}</div>
+        {% endif %}
+    </div>
+    <a href="{{ url_for('customers.edit_customer', customer_id=customer.id) }}"
+       class="btn btn-outline-secondary">Редактировать</a>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h2 class="h6 mb-3">Данные</h2>
+                <dl class="row mb-0">
+                    <dt class="col-sm-5 text-muted">Паспорт / ID</dt>
+                    <dd class="col-sm-7">{{ customer.passport or '—' }}</dd>
+
+                    <dt class="col-sm-5 text-muted">ПИНФЛ</dt>
+                    <dd class="col-sm-7">{{ customer.pinfl or '—' }}</dd>
+
+                    <dt class="col-sm-5 text-muted">Постоянная прописка</dt>
+                    <dd class="col-sm-7">{{ 'Да' if customer.has_permanent_registration else 'Нет' }}</dd>
+
+                    <dt class="col-sm-5 text-muted">День зарплаты</dt>
+                    <dd class="col-sm-7">{{ customer.salary_day if customer.salary_day is not none else '—' }}</dd>
+
+                    <dt class="col-sm-5 text-muted">Координаты</dt>
+                    <dd class="col-sm-7">
+                        {% if customer.latitude and customer.longitude %}
+                            {{ customer.latitude }}, {{ customer.longitude }}
+                        {% else %}—{% endif %}
+                    </dd>
+
+                    <dt class="col-sm-5 text-muted">Зарегистрирован</dt>
+                    <dd class="col-sm-7">{{ customer.registered_at.strftime('%d.%m.%Y %H:%M') }}</dd>
+
+                    <dt class="col-sm-5 text-muted">Заметка</dt>
+                    <dd class="col-sm-7">{{ customer.note or '—' }}</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h2 class="h6 mb-3">Рассрочки</h2>
+
+                {% if installments %}
+                <ul class="list-group list-group-flush">
+                    {% for inst in installments %}
+                        <li class="list-group-item px-0">
+                            <a href="{{ url_for('installments.installment_detail', installment_id=inst.id) }}"
+                               class="text-decoration-none fw-semibold">
+                                {{ inst.phone.brand }} {{ inst.phone.model }}
+                            </a>
+                            <div class="text-muted small">
+                                {{ inst.months }} мес ·
+                                {% if inst.currency == 'USD' %}
+                                    $ {{ '{:,.0f}'.format(inst.total_with_percent).replace(',', ' ') }}
+                                {% else %}
+                                    {{ '{:,.0f}'.format(inst.total_with_percent).replace(',', ' ') }} сум
+                                {% endif %}
+                                {% if inst.is_closed %}
+                                    <span class="badge bg-secondary ms-1">Закрыта</span>
+                                {% else %}
+                                    <span class="badge bg-info text-dark ms-1">Активна</span>
+                                {% endif %}
+                            </div>
+                        </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                    <p class="text-muted mb-0">Рассрочек нет.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

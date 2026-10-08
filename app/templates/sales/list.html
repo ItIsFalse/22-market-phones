@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block title %}Продажи — 22 Market Phone{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-2">
+    <h1 class="h3 mb-0">Продажи</h1>
+    <a href="{{ url_for('sales.new_sale') }}" class="btn btn-primary">Новая продажа</a>
+</div>
+
+<form method="get" class="card shadow-sm mb-3">
+    <div class="card-body py-3">
+        <div class="d-flex gap-2">
+            <input type="text" name="q" class="form-control"
+                   placeholder="Поиск: бренд, модель, IMEI, клиент…"
+                   value="{{ filters.q }}"
+                   autofocus>
+
+            <button type="submit" class="btn btn-primary">Найти</button>
+
+            <button type="button" class="btn btn-outline-secondary"
+                    data-filter-toggle
+                    title="Фильтры">
+                Фильтры
+                {% if filters.currency or filters.account_id or (filters.sort and filters.sort != 'date_desc') %}
+                    <span class="badge bg-primary ms-1">!</span>
+                {% endif %}
+            </button>
+
+            {% if filters.q or filters.currency or filters.account_id or (filters.sort and filters.sort != 'date_desc') %}
+                <a href="{{ url_for('sales.list_sales') }}"
+                   class="btn btn-outline-secondary">Сбросить</a>
+            {% endif %}
+        </div>
+
+        {% if filters.q or filters.currency or filters.account_id or (filters.sort and filters.sort != 'date_desc') %}
+            <div class="text-muted small mt-2">Найдено: {{ sales|length }}</div>
+        {% endif %}
+    </div>
+</form>
+
+{# ===== Панель фильтров ===== #}
+<div class="filter-overlay" data-filter-overlay></div>
+
+<aside class="filter-panel" data-filter-panel>
+    <div class="filter-panel-header">
+        <strong>Фильтры</strong>
+        <button type="button" class="btn-close" data-filter-close></button>
+    </div>
+
+    <div class="filter-panel-body">
+        <div class="mb-3">
+            <label class="form-label small text-muted mb-1">Валюта продажи</label>
+            <select name="currency" form="filter-form" class="form-select">
+                <option value="">Все</option>
+                <option value="USD" {% if filters.currency == 'USD' %}selected{% endif %}>USD</option>
+                <option value="UZS" {% if filters.currency == 'UZS' %}selected{% endif %}>UZS</option>
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label small text-muted mb-1">Касса</label>
+            <select name="account_id" form="filter-form" class="form-select">
+                <option value="">Все</option>
+                {% for acc in accounts %}
+                    <option value="{{ acc.id }}"
+                        {% if filters.account_id == acc.id|string %}selected{% endif %}>
+                        {{ acc.name }} ({{ acc.currency }})
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label small text-muted mb-1">Сортировка</label>
+            <select name="sort" form="filter-form" class="form-select">
+                <option value="date_desc" {% if filters.sort == 'date_desc' %}selected{% endif %}>Новые сначала</option>
+                <option value="price_asc" {% if filters.sort == 'price_asc' %}selected{% endif %}>Цена ↑</option>
+                <option value="price_desc" {% if filters.sort == 'price_desc' %}selected{% endif %}>Цена ↓</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="filter-panel-footer">
+        <button type="submit" form="filter-form" class="btn btn-primary flex-grow-1">Применить</button>
+        <a href="{{ url_for('sales.list_sales') }}" class="btn btn-outline-secondary">Сбросить</a>
+    </div>
+</aside>
+
+<form id="filter-form" method="get" class="d-none">
+    <input type="hidden" name="q" value="{{ filters.q }}">
+</form>
+
+{% include "_columns_control.html" %}
+
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle" data-columns-table="sales">
+            <thead class="table-light">
+                <tr>
+                    <th data-col-key="date">Дата</th>
+                    <th data-col-key="brand">Бренд</th>
+                    <th data-col-key="model">Модель</th>
+                    <th data-col-key="imei">IMEI</th>
+                    <th data-col-key="client_name">Клиент</th>
+                    <th data-col-key="client_contact">Контакт</th>
+                    <th data-col-key="price" class="text-end">Цена</th>
+                    <th data-col-key="currency">Валюта</th>
+                    <th data-col-key="margin" class="text-end">Наценка</th>
+                    <th data-col-key="cash">Касса</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for s in sales %}
+                <tr data-href="{{ url_for('sales.sale_detail', sale_id=s.id) }}"
+                    style="cursor: pointer;">
+                    <td data-col-key="date" class="text-nowrap text-muted small">
+                        {{ s.sold_at.strftime('%d.%m.%Y %H:%M') }}
+                    </td>
+                    <td data-col-key="brand" class="fw-semibold">{{ s.phone.brand }}</td>
+                    <td data-col-key="model">{{ s.phone.model }}</td>
+                    <td data-col-key="imei" class="text-muted small">{{ s.phone.imei or '—' }}</td>
+                    <td data-col-key="client_name">{{ s.client_name or '—' }}</td>
+                    <td data-col-key="client_contact" class="text-muted small">{{ s.client_contact or '—' }}</td>
+                    <td data-col-key="price" class="text-end">
+                        {% if s.currency == 'USD' %}
+                            $ {{ '{:,.0f}'.format(s.price).replace(',', ' ') }}
+                        {% else %}
+                            {{ '{:,.0f}'.format(s.price).replace(',', ' ') }} сум
+                        {% endif %}
+                    </td>
+                    <td data-col-key="currency">
+                        {% if s.currency == 'USD' %}
+                            <span class="badge bg-success">USD</span>
+                        {% else %}
+                            <span class="badge bg-secondary">UZS</span>
+                        {% endif %}
+                    </td>
+                    <td data-col-key="margin" class="text-end">
+                        {% if s.currency == s.phone.purchase_currency %}
+                            {% set margin = s.price - s.phone.purchase_price %}
+                            {% if s.currency == 'USD' %}
+                                $ {{ '{:,.0f}'.format(margin).replace(',', ' ') }}
+                            {% else %}
+                                {{ '{:,.0f}'.format(margin).replace(',', ' ') }} сум
+                            {% endif %}
+                        {% else %}
+                            <span class="text-muted small">валюта разная</span>
+                        {% endif %}
+                    </td>
+                    <td data-col-key="cash">
+                        {% if s.cash_account %}
+                            <a href="{{ url_for('cash.account_detail', account_id=s.cash_account.id) }}"
+                               class="text-decoration-none">
+                                {{ s.cash_account.name }}
+                            </a>
+                        {% else %}—{% endif %}
+                    </td>
+                </tr>
+            {% else %}
+                <tr>
+                    <td colspan="10" class="text-center text-muted py-4">
+                        Продаж пока нет.
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

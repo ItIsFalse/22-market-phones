@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Новый счёт — Касса{% endblock %}
+
+{% block content %}
+
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <a href="{{ url_for('cash.list_accounts') }}" class="text-decoration-none small text-muted">
+            &larr; К списку счетов
+        </a>
+
+        <div class="card shadow-sm mt-2">
+            <div class="card-body">
+                <h1 class="h4 mb-4">Новый счёт</h1>
+
+                <form method="post">
+                    <div class="mb-3">
+                        <label class="form-label">Название</label>
+                        <input type="text" name="name" class="form-control" required
+                               value="{{ form_data.get('name', '') }}"
+                               placeholder="Например: Сейф UZS">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Валюта</label>
+                        <select name="currency" class="form-select" required>
+                            <option value="UZS" {% if form_data.get('currency') == 'UZS' %}selected{% endif %}>UZS (сум)</option>
+                            <option value="USD" {% if form_data.get('currency') == 'USD' %}selected{% endif %}>USD (доллар)</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">
+                            Начальный баланс
+                            <span class="text-muted small">(можно 0 или отрицательное)</span>
+                        </label>
+                        <input type="text" name="initial_balance" class="form-control"
+                               value="{{ form_data.get('initial_balance', '0') }}">
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100">Создать</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

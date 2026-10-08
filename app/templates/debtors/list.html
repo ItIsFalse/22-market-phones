@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Должники — 22 Market Phone{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-2">
+    <h1 class="h3 mb-0">Должники</h1>
+    <a href="{{ url_for('debtors.new_debtor') }}" class="btn btn-primary">Добавить</a>
+</div>
+
+<form method="get" class="card shadow-sm mb-3">
+    <div class="card-body py-3">
+        <div class="d-flex gap-2">
+            <input type="text" name="q" class="form-control"
+                   placeholder="Поиск: ФИО, телефон, заметка…"
+                   value="{{ filters.q }}"
+                   autofocus>
+
+            <select name="sort" class="form-select" style="max-width: 240px;">
+                <option value="name_asc" {% if filters.sort == 'name_asc' %}selected{% endif %}>По имени (А-Я)</option>
+                <option value="date_desc" {% if filters.sort == 'date_desc' %}selected{% endif %}>Дата займа (новые)</option>
+                <option value="date_asc" {% if filters.sort == 'date_asc' %}selected{% endif %}>Дата займа (старые)</option>
+            </select>
+
+            <button type="submit" class="btn btn-primary">Найти</button>
+
+            {% if filters.q or (filters.sort and filters.sort != 'name_asc') %}
+                <a href="{{ url_for('debtors.list_debtors') }}"
+                   class="btn btn-outline-secondary">Сбросить</a>
+            {% endif %}
+        </div>
+
+        {% if filters.q or (filters.sort and filters.sort != 'name_asc') %}
+            <div class="text-muted small mt-2">Найдено: {{ debtors|length }}</div>
+        {% endif %}
+    </div>
+</form>
+
+{% include "_columns_control.html" %}
+
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle" data-columns-table="debtors">
+            <thead class="table-light">
+                <tr>
+                    <th data-col-key="full_name">ФИО</th>
+                    <th data-col-key="phone">Телефон</th>
+                    <th data-col-key="loan_date">Дата займа</th>
+                    <th data-col-key="debt_uzs" class="text-end">Долг UZS</th>
+                    <th data-col-key="debt_usd" class="text-end">Долг USD</th>
+                    <th data-col-key="note">Заметка</th>
+                    <th data-col-key="created_at">Дата регистрации</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for d in debtors %}
+                <tr data-href="{{ url_for('debtors.debtor_detail', debtor_id=d.id) }}"
+                    style="cursor: pointer;">
+                    <td data-col-key="full_name" class="fw-semibold">{{ d.full_name }}</td>
+                    <td data-col-key="phone">{{ d.phone or '—' }}</td>
+                    <td data-col-key="loan_date" class="text-muted small text-nowrap">
+                        {{ d.loan_date.strftime('%d.%m.%Y') if d.loan_date else '—' }}
+                    </td>
+                    <td data-col-key="debt_uzs" class="text-end
+                        {% if d.debt_uzs > 0 %}text-danger{% elif d.debt_uzs < 0 %}text-success{% endif %}">
+                        {% if d.debt_uzs %}
+                            {{ '{:,.0f}'.format(d.debt_uzs).replace(',', ' ') }} сум
+                        {% else %}
+                            <span class="text-muted">0 сум</span>
+                        {% endif %}
+                    </td>
+                    <td data-col-key="debt_usd" class="text-end
+                        {% if d.debt_usd > 0 %}text-danger{% elif d.debt_usd < 0 %}text-success{% endif %}">
+                        {% if d.debt_usd %}
+                            $ {{ '{:,.0f}'.format(d.debt_usd).replace(',', ' ') }}
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td data-col-key="note" class="text-muted small">
+                        {% if d.note %}
+                            {{ d.note[:50] }}{% if d.note|length > 50 %}…{% endif %}
+                        {% else %}—{% endif %}
+                    </td>
+                    <td data-col-key="created_at" class="text-muted small text-nowrap">
+                        {{ d.created_at.strftime('%d.%m.%Y') }}
+                    </td>
+                </tr>
+            {% else %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">
+                        Должников пока нет.
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

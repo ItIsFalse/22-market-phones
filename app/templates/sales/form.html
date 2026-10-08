@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Новая продажа — 22 Market Phone{% endblock %}
+
+{% block content %}
+
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <a href="{{ url_for('sales.list_sales') }}" class="text-decoration-none small text-muted">
+            &larr; К списку продаж
+        </a>
+
+        <div class="card shadow-sm mt-2">
+            <div class="card-body">
+                <h1 class="h4 mb-4">Новая продажа</h1>
+
+                {% if not phones %}
+                    <div class="alert alert-warning">
+                        Нет телефонов в наличии. Сначала добавьте закупку.
+                    </div>
+                {% endif %}
+
+                <form method="post">
+                    <div class="mb-3">
+                        <label class="form-label">Телефон</label>
+                        <select name="phone_id" class="form-select" required>
+                            <option value="">— выберите —</option>
+                            {% for p in phones %}
+                                <option value="{{ p.id }}"
+                                    {% if form_data.get('phone_id') == p.id %}selected{% endif %}>
+                                    {{ p.brand }} {{ p.model }}
+                                    {% if p.purchase.storage %} · {{ p.purchase.storage }}{% endif %}
+                                    {% if p.purchase.color %} · {{ p.purchase.color }}{% endif %}
+                                    — закупка
+                                    {% if p.purchase_currency == 'USD' %}
+                                        ${{ '{:,.2f}'.format(p.purchase_price) }}
+                                    {% else %}
+                                        {{ '{:,.0f}'.format(p.purchase_price).replace(',', ' ') }} сумм
+                                    {% endif %}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Клиент</label>
+                            <input type="text" name="client_name" class="form-control"
+                                   value="{{ form_data.get('client_name', '') }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Контакт</label>
+                            <input type="text" name="client_contact" class="form-control"
+                                   value="{{ form_data.get('client_contact', '') }}">
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <label class="form-label">Цена продажи</label>
+                            <input type="text" name="price" class="form-control" required
+                                   value="{{ form_data.get('price_raw', '') }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Валюта</label>
+                            <select name="currency" class="form-select" required>
+                                <option value="USD" {% if form_data.get('currency') == 'USD' %}selected{% endif %}>USD</option>
+                                <option value="UZS" {% if form_data.get('currency') == 'UZS' %}selected{% endif %}>UZS</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Касса</label>
+                            <select name="cash_account_id" class="form-select" required>
+                                <option value="">— выберите —</option>
+                                {% for acc in accounts %}
+                                    <option value="{{ acc.id }}"
+                                        {% if form_data.get('cash_account_id') == acc.id %}selected{% endif %}>
+                                        {{ acc.name }} ({{ acc.currency }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100" {% if not phones %}disabled{% endif %}>
+                        Оформить продажу
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

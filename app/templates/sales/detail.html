@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Продажа #{{ sale.id }} — 22 Market Phone{% endblock %}
+
+{% block content %}
+
+<a href="{{ url_for('sales.list_sales') }}" class="text-decoration-none small text-muted">
+    &larr; К списку продаж
+</a>
+
+<div class="d-flex justify-content-between align-items-start mb-4 mt-2">
+    <div>
+        <h1 class="h3 mb-1">{{ sale.phone.brand }} {{ sale.phone.model }}</h1>
+        <div class="text-muted">
+            Продано {{ sale.sold_at.strftime('%d.%m.%Y %H:%M') }}
+        </div>
+    </div>
+    <div class="text-end">
+        <div class="text-muted small">Цена продажи</div>
+        <div class="fs-4 fw-bold">
+            {% if sale.currency == 'USD' %}
+                $ {{ '{:,.0f}'.format(sale.price).replace(',', ' ') }}
+            {% else %}
+                {{ '{:,.0f}'.format(sale.price).replace(',', ' ') }} сум
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h2 class="h6 mb-3">Информация</h2>
+                <dl class="row mb-0">
+                    <dt class="col-sm-4 text-muted">Клиент</dt>
+                    <dd class="col-sm-8">{{ sale.client_name or '—' }}</dd>
+
+                    <dt class="col-sm-4 text-muted">Контакт</dt>
+                    <dd class="col-sm-8">{{ sale.client_contact or '—' }}</dd>
+
+                    <dt class="col-sm-4 text-muted">IMEI</dt>
+                    <dd class="col-sm-8">{{ sale.phone.imei or '—' }}</dd>
+
+                    <dt class="col-sm-4 text-muted">Закупка</dt>
+                    <dd class="col-sm-8">
+                        {% if sale.phone.purchase_currency == 'USD' %}
+                            $ {{ '{:,.0f}'.format(sale.phone.purchase_price).replace(',', ' ') }}
+                        {% else %}
+                            {{ '{:,.0f}'.format(sale.phone.purchase_price).replace(',', ' ') }} сум
+                        {% endif %}
+                        <a href="{{ url_for('purchases.purchase_detail', purchase_id=sale.phone.purchase.id) }}"
+                           class="small ms-2">открыть</a>
+                    </dd>
+
+                    <dt class="col-sm-4 text-muted">Наценка</dt>
+                    <dd class="col-sm-8">
+                        {% if sale.currency == sale.phone.purchase_currency %}
+                            {% set margin = sale.price - sale.phone.purchase_price %}
+                            {% if sale.currency == 'USD' %}
+                                $ {{ '{:,.0f}'.format(margin).replace(',', ' ') }}
+                            {% else %}
+                                {{ '{:,.0f}'.format(margin).replace(',', ' ') }} сум
+                            {% endif %}
+                        {% else %}
+                            <span class="text-muted">валюта разная</span>
+                        {% endif %}
+                    </dd>
+
+                    <dt class="col-sm-4 text-muted">Касса</dt>
+                    <dd class="col-sm-8">
+                        {% if sale.cash_account %}
+                            <a href="{{ url_for('cash.account_detail', account_id=sale.cash_account.id) }}">
+                                {{ sale.cash_account.name }}
+                            </a>
+                        {% else %}—{% endif %}
+                    </dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h2 class="h6 mb-3">Отмена</h2>
+                <p class="text-muted small">
+                    Если удалить продажу, телефон вернётся в наличие,
+                    а из кассы спишется сумма продажи обратной операцией.
+                </p>
+                <form method="post" action="{{ url_for('sales.sale_delete', sale_id=sale.id) }}"
+                      onsubmit="return confirm('Отменить продажу?');">
+                    <button type="submit" class="btn btn-outline-danger">Отменить продажу</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

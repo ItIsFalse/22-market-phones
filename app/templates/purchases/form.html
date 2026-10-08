@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Новая закупка — 22 Market Phone{% endblock %}
+
+{% block content %}
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <a href="{{ url_for('purchases.list_purchases') }}" class="text-decoration-none small text-muted">
+            &larr; К списку закупок
+        </a>
+
+        <div class="card shadow-sm mt-2">
+            <div class="card-body">
+                <h1 class="h4 mb-4">Новая закупка</h1>
+
+                <form method="post">
+                    <h2 class="h6 text-muted mb-3">Продавец</h2>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label">Имя / отметка</label>
+                            <input type="text" name="client_name" class="form-control"
+                                   value="{{ form_data.get('client_name', '') }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Контакт</label>
+                            <input type="text" name="client_contact" class="form-control"
+                                   value="{{ form_data.get('client_contact', '') }}">
+                        </div>
+                    </div>
+
+                    <h2 class="h6 text-muted mb-3">Телефон</h2>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label">Бренд</label>
+                            <input type="text" name="brand" class="form-control" required
+                                   value="{{ form_data.get('brand', '') }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Модель</label>
+                            <input type="text" name="model" class="form-control" required
+                                   value="{{ form_data.get('model', '') }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Цвет</label>
+                            <input type="text" name="color" class="form-control"
+                                   value="{{ form_data.get('color', '') }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Память</label>
+                            <input type="text" name="storage" class="form-control"
+                                   value="{{ form_data.get('storage', '') }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Батарея</label>
+                            <input type="text" name="battery" class="form-control"
+                                   value="{{ form_data.get('battery', '') }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">IMEI</label>
+                            <input type="text" name="imei" class="form-control"
+                                   value="{{ form_data.get('imei', '') }}">
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end">
+                            <div class="form-check">
+                                <input type="checkbox" name="has_box" class="form-check-input" id="has_box"
+                                       {% if form_data.get('has_box') %}checked{% endif %}>
+                                <label class="form-check-label" for="has_box">Коробка есть</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h2 class="h6 text-muted mb-3">Оплата</h2>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <label class="form-label">Цена</label>
+                            <input type="text" name="price" class="form-control" required
+                                   value="{{ form_data.get('price_raw', '') }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Валюта</label>
+                            <select name="currency" class="form-select" required>
+                                <option value="USD" {% if form_data.get('currency') == 'USD' %}selected{% endif %}>USD</option>
+                                <option value="UZS" {% if form_data.get('currency') == 'UZS' %}selected{% endif %}>UZS</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Касса</label>
+                            <select name="cash_account_id" class="form-select" required>
+                                <option value="">— выберите —</option>
+                                {% for acc in accounts %}
+                                    <option value="{{ acc.id }}"
+                                        {% if form_data.get('cash_account_id') == acc.id %}selected{% endif %}>
+                                        {{ acc.name }} ({{ acc.currency }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Заметка</label>
+                        <textarea name="note" class="form-control" rows="2">{{ form_data.get('note', '') }}</textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100">Сохранить</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

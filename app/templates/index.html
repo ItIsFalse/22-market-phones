@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}Главная — 22 Market Phone{% endblock %}
+
+{% block content %}
+
+<div class="d-flex flex-wrap gap-2 mb-4">
+    <a href="{{ url_for('purchases.new_purchase') }}" class="btn btn-primary">
+        Новая закупка
+    </a>
+    <a href="{{ url_for('purchases.list_purchases') }}" class="btn btn-success">
+        Новая продажа
+    </a>
+    <a href="{{ url_for('installments.summary') }}" class="btn btn-outline-primary">
+        Рассрочки — сводка
+    </a>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-6 col-lg-3">
+        <a href="{% if default_cash_uzs %}{{ url_for('cash.account_detail', account_id=default_cash_uzs.id) }}{% else %}{{ url_for('cash.list_accounts') }}{% endif %}"
+           class="text-decoration-none">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Касса UZS</div>
+                    <div class="fs-4 fw-bold text-dark">
+                        {{ '{:,.0f}'.format(totals['UZS']).replace(',', ' ') }}
+                    </div>
+                    <div class="text-muted small">сум</div>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <div class="col-md-6 col-lg-3">
+        <a href="{% if default_cash_usd %}{{ url_for('cash.account_detail', account_id=default_cash_usd.id) }}{% else %}{{ url_for('cash.list_accounts') }}{% endif %}"
+           class="text-decoration-none">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Касса USD</div>
+                    <div class="fs-4 fw-bold text-dark">
+                        $ {{ '{:,.2f}'.format(totals['USD']) }}
+                    </div>
+                    <div class="text-muted small">USD</div>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <div class="col-md-6 col-lg-3">
+        <a href="{{ url_for('purchases.list_purchases') }}" class="text-decoration-none">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Телефонов в наличии</div>
+                    <div class="fs-4 fw-bold text-dark">{{ phones_in_stock }}</div>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <div class="col-md-6 col-lg-3">
+        <a href="{{ url_for('installments.summary') }}" class="text-decoration-none">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Активных рассрочек</div>
+                    <div class="fs-4 fw-bold text-dark">{{ installments_active }}</div>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-6 col-lg-3">
+        <a href="{{ url_for('debtors.list_debtors') }}" class="text-decoration-none">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Должников с долгом</div>
+                    <div class="fs-4 fw-bold text-dark">{{ debtors_count }}</div>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <h2 class="h6 mb-3">Рассрочки — пришёл день оплаты</h2>
+
+        {% if due_installments %}
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Клиент</th>
+                        <th>Телефон</th>
+                        <th>Срок</th>
+                        <th class="text-end">Должно быть</th>
+                        <th class="text-end">Оплачено</th>
+                        <th class="text-end">Просрочка</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for row in due_installments %}
+                    <tr>
+                        <td>
+                            <a href="{{ url_for('customers.customer_detail', customer_id=row.installment.customer.id) }}"
+                               class="text-decoration-none">
+                                {{ row.installment.customer.full_name }}
+                            </a>
+                            <div class="text-muted small">{{ row.installment.customer.phone }}</div>
+                        </td>
+                        <td>{{ row.installment.phone.brand }} {{ row.installment.phone.model }}</td>
+                        <td class="text-nowrap small">{{ row.next_due.strftime('%d.%m.%Y') }}</td>
+                        <td class="text-end">$ {{ '{:,.0f}'.format(row.should_paid).replace(',', ' ') }}</td>
+                        <td class="text-end text-success">$ {{ '{:,.0f}'.format(row.actually_paid).replace(',', ' ') }}</td>
+                        <td class="text-end fw-bold text-danger">$ {{ '{:,.0f}'.format(row.overdue).replace(',', ' ') }}</td>
+                        <td class="text-end">
+                            <a href="{{ url_for('installments.installment_detail', installment_id=row.installment.id) }}"
+                               class="btn btn-sm btn-primary">Внести</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            <div class="alert alert-success mb-0">Просрочек нет.</div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

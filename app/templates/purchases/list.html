@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+
+{% block title %}Приход — 22 Market Phone{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-2">
+    <h1 class="h3 mb-0">Приход телефонов — в наличии</h1>
+    <a href="{{ url_for('purchases.new_purchase') }}" class="btn btn-primary">Добавить закупку</a>
+</div>
+
+<form method="get" class="card shadow-sm mb-3">
+    <div class="card-body py-3">
+        <div class="d-flex gap-2">
+            <input type="text" name="q" class="form-control"
+                   placeholder="Поиск: бренд, модель, IMEI, цвет, продавец…"
+                   value="{{ filters.q }}"
+                   autofocus>
+
+            <button type="submit" class="btn btn-primary">Найти</button>
+
+            <button type="button" class="btn btn-outline-secondary"
+                    data-filter-toggle
+                    title="Фильтры">
+                Фильтры
+                {% if filters.brand or filters.color or filters.storage or filters.battery or filters.has_box or (filters.sort and filters.sort != 'date_desc') %}
+                    <span class="badge bg-primary ms-1">!</span>
+                {% endif %}
+            </button>
+
+            {% if filters.q or filters.brand or filters.color or filters.storage or filters.battery or filters.has_box or (filters.sort and filters.sort != 'date_desc') %}
+                <a href="{{ url_for('purchases.list_purchases') }}"
+                   class="btn btn-outline-secondary">Сбросить</a>
+            {% endif %}
+        </div>
+
+        {% if filters.q or filters.brand or filters.color or filters.storage or filters.battery or filters.has_box or (filters.sort and filters.sort != 'date_desc') %}
+            <div class="text-muted small mt-2">Найдено: {{ purchases|length }}</div>
+        {% endif %}
+    </div>
+</form>
+
+{# ===== Панель фильтров ===== #}
+<div class="filter-overlay" data-filter-overlay></div>
+
+<aside class="filter-panel" data-filter-panel>
+    <div class="filter-panel-header">
+        <strong>Фильтры</strong>
+        <button type="button" class="btn-close" data-filter-close></button>
+    </div>
+
+    <div class="filter-panel-body">
+        <div class="mb-3">
+            <label class="form-label small text-muted mb-1">Бренд</label>
+            <input type="text" name="brand" form="filter-form" class="form-control"
+                   list="brand-list"
+                   placeholder="Любой"
+                   value="{{ filters.brand }}">
+            <datalist id="brand-list">
+                {% for b in brand_options %}
+                    <option value="{{ b }}"></option>
+                {% endfor %}
+            </datalist>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label small text-muted mb-1">Цвет</label>
+            <input type="text" name="color" form="filter-form" class="form-control"
+                   placeholder="Любой"
+                   value="{{ filters.color }}">
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label small text-muted mb-1">Память</label>
+            <select name="storage" form="filter-form" class="form-select">
+                <option value="">Любая</option>
+                {% for s in storage_options %}
+                    <option value="{{ s }}" {% if filters.storage == s %}selected{% endif %}>{{ s }} GB</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label small text-muted mb-1">Батарея</label>
+            <input type="text" name="battery" form="filter-form" class="form-control"
+                   placeholder="Любая"
+                   value="{{ filters.battery }}">
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label small text-muted mb-1">Коробка</label>
+            <select name="has_box" form="filter-form" class="form-select">
+                <option value="">Все</option>
+                <option value="1" {% if filters.has_box == '1' %}selected{% endif %}>Да</option>
+                <option value="0" {% if filters.has_box == '0' %}selected{% endif %}>Нет</option>
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label small text-muted mb-1">Сортировка</label>
+            <select name="sort" form="filter-form" class="form-select">
+                <option value="date_desc" {% if filters.sort == 'date_desc' %}selected{% endif %}>Новые сначала</option>
+                <option value="price_asc" {% if filters.sort == 'price_asc' %}selected{% endif %}>Цена ↑</option>
+                <option value="price_desc" {% if filters.sort == 'price_desc' %}selected{% endif %}>Цена ↓</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="filter-panel-footer">
+        <button type="submit" form="filter-form" class="btn btn-primary flex-grow-1">Применить</button>
+        <a href="{{ url_for('purchases.list_purchases') }}" class="btn btn-outline-secondary">Сбросить</a>
+    </div>
+</aside>
+
+<form id="filter-form" method="get" class="d-none"></form>
+
+{% include "_columns_control.html" %}
+
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle" data-columns-table="purchases">
+            <thead class="table-light">
+                <tr>
+                    <th data-col-key="date">Дата</th>
+                    <th data-col-key="brand">Бренд</th>
+                    <th data-col-key="model">Модель</th>
+                    <th data-col-key="color">Цвет</th>
+                    <th data-col-key="storage">Память</th>
+                    <th data-col-key="battery">Батарея</th>
+                    <th data-col-key="imei">IMEI</th>
+                    <th data-col-key="has_box">Коробка</th>
+                    <th data-col-key="price" class="text-end">Цена</th>
+                    <th data-col-key="currency">Валюта</th>
+                    <th data-col-key="cash">Касса</th>
+                    <th data-col-key="client_name">Продавец</th>
+                    <th data-col-key="client_contact">Контакт</th>
+                    <th data-col-key="note">Заметка</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for p in purchases %}
+                <tr data-href="{{ url_for('purchases.purchase_detail', purchase_id=p.id) }}"
+                    style="cursor: pointer;">
+                    <td data-col-key="date" class="text-nowrap text-muted small">
+                        {{ p.created_at.strftime('%d.%m.%Y %H:%M') }}
+                    </td>
+                    <td data-col-key="brand" class="fw-semibold">{{ p.brand }}</td>
+                    <td data-col-key="model">{{ p.model }}</td>
+                    <td data-col-key="color">{{ p.color or '—' }}</td>
+                    <td data-col-key="storage">{{ p.storage or '—' }}</td>
+                    <td data-col-key="battery">{{ p.battery or '—' }}</td>
+                    <td data-col-key="imei" class="text-muted small">{{ p.imei or '—' }}</td>
+                    <td data-col-key="has_box">
+                        {% if p.has_box %}
+                            <span class="badge bg-success-subtle text-success">Да</span>
+                        {% else %}
+                            <span class="badge bg-secondary-subtle text-secondary">Нет</span>
+                        {% endif %}
+                    </td>
+                    <td data-col-key="price" class="text-end">
+                        {% if p.currency == 'USD' %}
+                            $ {{ '{:,.0f}'.format(p.price).replace(',', ' ') }}
+                        {% else %}
+                            {{ '{:,.0f}'.format(p.price).replace(',', ' ') }} сум
+                        {% endif %}
+                    </td>
+                    <td data-col-key="currency">
+                        {% if p.currency == 'USD' %}
+                            <span class="badge bg-success">USD</span>
+                        {% else %}
+                            <span class="badge bg-secondary">UZS</span>
+                        {% endif %}
+                    </td>
+                    <td data-col-key="cash">
+                        {% if p.cash_account %}
+                            <a href="{{ url_for('cash.account_detail', account_id=p.cash_account.id) }}"
+                               class="text-decoration-none">
+                                {{ p.cash_account.name }}
+                            </a>
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td data-col-key="client_name">{{ p.client_name or '—' }}</td>
+                    <td data-col-key="client_contact" class="text-muted small">{{ p.client_contact or '—' }}</td>
+                    <td data-col-key="note" class="text-muted small">
+                        {% if p.note %}
+                            {{ p.note[:50] }}{% if p.note|length > 50 %}…{% endif %}
+                        {% else %}—{% endif %}
+                    </td>
+                </tr>
+            {% else %}
+                <tr>
+                    <td colspan="14" class="text-center text-muted py-4">
+                        Телефонов в наличии нет.
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

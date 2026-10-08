@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Редактировать' if customer else 'Новый покупатель' }} — 22 Market Phone{% endblock %}
+
+{% block content %}
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <a href="{{ url_for('customers.list_customers') }}" class="text-decoration-none small text-muted">
+            &larr; К списку покупателей
+        </a>
+
+        <div class="card shadow-sm mt-2">
+            <div class="card-body">
+                <h1 class="h4 mb-4">
+                    {{ 'Редактировать покупателя' if customer else 'Новый покупатель' }}
+                </h1>
+
+                <form method="post">
+                    <div class="mb-3">
+                        <label class="form-label">ФИО <span class="text-danger">*</span></label>
+                        <input type="text" name="full_name" class="form-control" required
+                               value="{{ form_data.get('full_name', '') }}">
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Телефон <span class="text-danger">*</span></label>
+                            <input type="text" name="phone" class="form-control" required
+                                   value="{{ form_data.get('phone', '') }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Доп. телефон</label>
+                            <input type="text" name="phone_extra" class="form-control"
+                                   value="{{ form_data.get('phone_extra', '') }}">
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Паспорт / ID</label>
+                            <input type="text" name="passport" class="form-control"
+                                   value="{{ form_data.get('passport', '') }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">ПИНФЛ</label>
+                            <input type="text" name="pinfl" class="form-control"
+                                   value="{{ form_data.get('pinfl', '') }}">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Адрес проживания</label>
+                        <input type="text" name="address" class="form-control"
+                               value="{{ form_data.get('address', '') }}">
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6 d-flex align-items-end">
+                            <div class="form-check">
+                                <input type="checkbox" name="has_permanent_registration"
+                                       class="form-check-input" id="has_reg"
+                                       {% if form_data.get('has_permanent_registration') %}checked{% endif %}>
+                                <label class="form-check-label" for="has_reg">
+                                    Постоянная прописка
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">День зарплаты (0–31)</label>
+                            <input type="number" name="salary_day" min="0" max="31" class="form-control"
+                                   value="{{ form_data.get('salary_day') if form_data.get('salary_day') is not none else '' }}">
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Широта (latitude)</label>
+                            <input type="text" name="latitude" class="form-control"
+                                   value="{{ form_data.get('latitude', '') }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Долгота (longitude)</label>
+                            <input type="text" name="longitude" class="form-control"
+                                   value="{{ form_data.get('longitude', '') }}">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Заметка</label>
+                        <textarea name="note" class="form-control" rows="3">{{ form_data.get('note', '') }}</textarea>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary flex-grow-1">Сохранить</button>
+                        <a href="{{ url_for('customers.list_customers') }}" class="btn btn-outline-secondary">Отмена</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

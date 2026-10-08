@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+
+{% block title %}Сводка по рассрочкам — 22 Market Phone{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <a href="{{ url_for('main.index') }}" class="text-decoration-none small text-muted">
+            &larr; На главную
+        </a>
+        <h1 class="h3 mb-0 mt-2">Сводка по рассрочкам</h1>
+    </div>
+    <a href="{{ url_for('installments.new_installment') }}" class="btn btn-primary">
+        Новая рассрочка
+    </a>
+</div>
+
+<div class="d-flex gap-2 mb-4">
+    <a href="{{ url_for('installments.summary', currency='USD') }}"
+       class="btn {% if cur == 'USD' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+        USD
+    </a>
+    <a href="{{ url_for('installments.summary', currency='ALL') }}"
+       class="btn {% if cur == 'ALL' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+        Все
+    </a>
+    <a href="{{ url_for('installments.summary', currency='UZS') }}"
+       class="btn {% if cur == 'UZS' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+        UZS
+    </a>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">Собрано</div>
+                {% if cur == 'ALL' %}
+                    <div class="fs-5 fw-bold text-success">
+                        $ {{ '{:,.0f}'.format(collected_usd).replace(',', ' ') }}
+                    </div>
+                    <div class="fs-5 fw-bold text-success">
+                        {{ '{:,.0f}'.format(collected_uzs).replace(',', ' ') }} сум
+                    </div>
+                {% elif cur == 'USD' %}
+                    <div class="fs-4 fw-bold text-success">
+                        $ {{ '{:,.0f}'.format(collected_usd).replace(',', ' ') }}
+                    </div>
+                {% else %}
+                    <div class="fs-4 fw-bold text-success">
+                        {{ '{:,.0f}'.format(collected_uzs).replace(',', ' ') }} сум
+                    </div>
+                {% endif %}
+                <div class="text-muted small">Всего оплачено по рассрочкам</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">Должны заплатить</div>
+                {% if cur == 'ALL' %}
+                    <div class="fs-5 fw-bold text-warning">
+                        $ {{ '{:,.0f}'.format(pending_usd).replace(',', ' ') }}
+                    </div>
+                    <div class="fs-5 fw-bold text-warning">
+                        {{ '{:,.0f}'.format(pending_uzs).replace(',', ' ') }} сум
+                    </div>
+                {% elif cur == 'USD' %}
+                    <div class="fs-4 fw-bold text-warning">
+                        $ {{ '{:,.0f}'.format(pending_usd).replace(',', ' ') }}
+                    </div>
+                {% else %}
+                    <div class="fs-4 fw-bold text-warning">
+                        {{ '{:,.0f}'.format(pending_uzs).replace(',', ' ') }} сум
+                    </div>
+                {% endif %}
+                <div class="text-muted small">
+                    Активных рассрочек: {{ active_count }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">Просрочено</div>
+                {% if cur == 'ALL' %}
+                    <div class="fs-5 fw-bold text-danger">
+                        $ {{ '{:,.0f}'.format(overdue_usd).replace(',', ' ') }}
+                    </div>
+                    <div class="fs-5 fw-bold text-danger">
+                        {{ '{:,.0f}'.format(overdue_uzs).replace(',', ' ') }} сум
+                    </div>
+                {% elif cur == 'USD' %}
+                    <div class="fs-4 fw-bold text-danger">
+                        $ {{ '{:,.0f}'.format(overdue_usd).replace(',', ' ') }}
+                    </div>
+                {% else %}
+                    <div class="fs-4 fw-bold text-danger">
+                        {{ '{:,.0f}'.format(overdue_uzs).replace(',', ' ') }} сум
+                    </div>
+                {% endif %}
+                <div class="text-muted small">Срок пришёл, оплата не внесена</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">Закрыто</div>
+                <div class="fs-4 fw-bold text-secondary">{{ closed_count }}</div>
+                <div class="text-muted small">Рассрочек полностью погашено</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <h2 class="h6 mb-3">
+            Рассрочки
+            {% if cur == 'USD' %}— только USD{% elif cur == 'UZS' %}— только UZS{% else %}— все{% endif %}
+        </h2>
+
+        {% if installments %}
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Дата</th>
+                        <th>Телефон</th>
+                        <th>Покупатель</th>
+                        <th class="text-end">Цена</th>
+                        <th class="text-end">Оплачено</th>
+                        <th class="text-end">Остаток</th>
+                        <th>Статус</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for inst in installments %}
+                    <tr>
+                        <td class="text-nowrap text-muted small">
+                            {{ inst.started_at.strftime('%d.%m.%Y') }}
+                        </td>
+                        <td>{{ inst.phone.brand }} {{ inst.phone.model }}</td>
+                        <td>
+                            <a href="{{ url_for('customers.customer_detail', customer_id=inst.customer.id) }}"
+                               class="text-decoration-none">
+                                {{ inst.customer.full_name }}
+                            </a>
+                            <div class="text-muted small">{{ inst.customer.phone }}</div>
+                        </td>
+                        <td class="text-end">
+                            {% if inst.currency == 'USD' %}
+                                $ {{ '{:,.0f}'.format(inst.price).replace(',', ' ') }}
+                            {% else %}
+                                {{ '{:,.0f}'.format(inst.price).replace(',', ' ') }} сум
+                            {% endif %}
+                        </td>
+                        <td class="text-end text-success">
+                            {% if inst.currency == 'USD' %}
+                                $ {{ '{:,.0f}'.format(inst.paid_total).replace(',', ' ') }}
+                            {% else %}
+                                {{ '{:,.0f}'.format(inst.paid_total).replace(',', ' ') }} сум
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            {% set left = inst.debt_left %}
+                            {% if left > 0 %}
+                                <span class="text-danger fw-semibold">
+                                    {% if inst.currency == 'USD' %}
+                                        $ {{ '{:,.0f}'.format(left).replace(',', ' ') }}
+                                    {% else %}
+                                        {{ '{:,.0f}'.format(left).replace(',', ' ') }} сум
+                                    {% endif %}
+                                </span>
+                            {% else %}
+                                <span class="text-success">0</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if inst.is_closed %}
+                                <span class="badge bg-secondary">Закрыта</span>
+                            {% else %}
+                                <span class="badge bg-info text-dark">Активна</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <a href="{{ url_for('installments.installment_detail', installment_id=inst.id) }}"
+                               class="btn btn-sm btn-outline-secondary">Открыть</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            <p class="text-muted mb-0">Рассрочек нет.</p>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

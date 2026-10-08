@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}Покупатели — 22 Market Phone{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-2">
+    <h1 class="h3 mb-0">Покупатели</h1>
+    <a href="{{ url_for('customers.new_customer') }}" class="btn btn-primary">Добавить</a>
+</div>
+
+<form method="get" class="card shadow-sm mb-3">
+    <div class="card-body py-3">
+        <div class="d-flex gap-2">
+            <input type="text" name="q" class="form-control"
+                   placeholder="Поиск: ФИО, телефон, паспорт, ПИНФЛ, адрес…"
+                   value="{{ filters.q }}"
+                   autofocus>
+
+            <button type="submit" class="btn btn-primary">Найти</button>
+
+            <button type="button" class="btn btn-outline-secondary"
+                    data-filter-toggle
+                    title="Фильтры">
+                Фильтры
+                {% if filters.registration or (filters.sort and filters.sort != 'name_asc') %}
+                    <span class="badge bg-primary ms-1">!</span>
+                {% endif %}
+            </button>
+
+            {% if filters.q or filters.registration or (filters.sort and filters.sort != 'name_asc') %}
+                <a href="{{ url_for('customers.list_customers') }}"
+                   class="btn btn-outline-secondary">Сбросить</a>
+            {% endif %}
+        </div>
+
+        {% if filters.q or filters.registration or (filters.sort and filters.sort != 'name_asc') %}
+            <div class="text-muted small mt-2">Найдено: {{ customers|length }}</div>
+        {% endif %}
+    </div>
+</form>
+
+{# ===== Панель фильтров ===== #}
+<div class="filter-overlay" data-filter-overlay></div>
+
+<aside class="filter-panel" data-filter-panel>
+    <div class="filter-panel-header">
+        <strong>Фильтры</strong>
+        <button type="button" class="btn-close" data-filter-close></button>
+    </div>
+
+    <div class="filter-panel-body">
+        <div class="mb-3">
+            <label class="form-label small text-muted mb-1">Постоянная прописка</label>
+            <select name="registration" form="filter-form" class="form-select">
+                <option value="">Все</option>
+                <option value="yes" {% if filters.registration == 'yes' %}selected{% endif %}>Есть</option>
+                <option value="no" {% if filters.registration == 'no' %}selected{% endif %}>Нет</option>
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label small text-muted mb-1">Сортировка</label>
+            <select name="sort" form="filter-form" class="form-select">
+                <option value="name_asc" {% if filters.sort == 'name_asc' %}selected{% endif %}>По имени (А-Я)</option>
+                <option value="date_desc" {% if filters.sort == 'date_desc' %}selected{% endif %}>Новые сначала</option>
+                <option value="date_asc" {% if filters.sort == 'date_asc' %}selected{% endif %}>Старые сначала</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="filter-panel-footer">
+        <button type="submit" form="filter-form" class="btn btn-primary flex-grow-1">Применить</button>
+        <a href="{{ url_for('customers.list_customers') }}" class="btn btn-outline-secondary">Сбросить</a>
+    </div>
+</aside>
+
+<form id="filter-form" method="get" class="d-none">
+    <input type="hidden" name="q" value="{{ filters.q }}">
+</form>
+
+{% include "_columns_control.html" %}
+
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle" data-columns-table="customers">
+            <thead class="table-light">
+                <tr>
+                    <th data-col-key="full_name">ФИО</th>
+                    <th data-col-key="phone">Телефон</th>
+                    <th data-col-key="phone_extra">Доп. телефон</th>
+                    <th data-col-key="passport">Паспорт</th>
+                    <th data-col-key="pinfl">ПИНФЛ</th>
+                    <th data-col-key="address">Адрес</th>
+                    <th data-col-key="registration">Прописка</th>
+                    <th data-col-key="salary_day" class="text-end">День зарплаты</th>
+                    <th data-col-key="registered_at">Дата регистрации</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for c in customers %}
+                <tr data-href="{{ url_for('customers.customer_detail', customer_id=c.id) }}"
+                    style="cursor: pointer;">
+                    <td data-col-key="full_name" class="fw-semibold">{{ c.full_name }}</td>
+                    <td data-col-key="phone">{{ c.phone }}</td>
+                    <td data-col-key="phone_extra" class="text-muted">{{ c.phone_extra or '—' }}</td>
+                    <td data-col-key="passport" class="text-muted small">{{ c.passport or '—' }}</td>
+                    <td data-col-key="pinfl" class="text-muted small">{{ c.pinfl or '—' }}</td>
+                    <td data-col-key="address" class="text-muted small">{{ c.address or '—' }}</td>
+                    <td data-col-key="registration">
+                        {% if c.has_permanent_registration %}
+                            <span class="badge bg-success-subtle text-success">Да</span>
+                        {% else %}
+                            <span class="badge bg-secondary-subtle text-secondary">Нет</span>
+                        {% endif %}
+                    </td>
+                    <td data-col-key="salary_day" class="text-end">
+                        {{ c.salary_day if c.salary_day is not none else '—' }}
+                    </td>
+                    <td data-col-key="registered_at" class="text-muted small text-nowrap">
+                        {{ c.registered_at.strftime('%d.%m.%Y') }}
+                    </td>
+                </tr>
+            {% else %}
+                <tr>
+                    <td colspan="9" class="text-center text-muted py-4">
+                        Покупателей пока нет.
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

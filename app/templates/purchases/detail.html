@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}{{ purchase.brand }} {{ purchase.model }} — Закупка{% endblock %}
+
+{% block content %}
+
+<a href="{{ url_for('purchases.list_purchases') }}" class="text-decoration-none small text-muted">
+    &larr; К списку закупок
+</a>
+
+<div class="d-flex justify-content-between align-items-start mb-4 mt-2">
+    <div>
+        <h1 class="h3 mb-1">{{ purchase.brand }} {{ purchase.model }}</h1>
+        <div class="text-muted">
+            {{ purchase.color or '' }}
+            {% if purchase.color and purchase.storage %} · {% endif %}
+            {{ purchase.storage or '' }}
+            {% if purchase.battery %} · {{ purchase.battery }}{% endif %}
+        </div>
+    </div>
+    <div class="text-end">
+        <div class="text-muted small">Цена закупки</div>
+        <div class="fs-4 fw-bold">
+            {% if purchase.currency == 'USD' %}
+                $ {{ '{:,.0f}'.format(purchase.price).replace(',', ' ') }}
+            {% else %}
+                {{ '{:,.0f}'.format(purchase.price).replace(',', ' ') }} сум
+            {% endif %}
+        </div>
+        {% if purchase.phone %}
+            {% if purchase.phone.status == 'in_stock' %}
+                <span class="badge bg-success">В наличии</span>
+            {% elif purchase.phone.status == 'sold' %}
+                <span class="badge bg-secondary">Продан</span>
+            {% elif purchase.phone.status == 'installment' %}
+                <span class="badge bg-info text-dark">В рассрочке</span>
+            {% endif %}
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h2 class="h6 mb-3">Информация</h2>
+                <dl class="row mb-0">
+                    <dt class="col-sm-4 text-muted">Продавец</dt>
+                    <dd class="col-sm-8">{{ purchase.client_name or '—' }}</dd>
+
+                    <dt class="col-sm-4 text-muted">Контакт</dt>
+                    <dd class="col-sm-8">{{ purchase.client_contact or '—' }}</dd>
+
+                    <dt class="col-sm-4 text-muted">IMEI</dt>
+                    <dd class="col-sm-8">{{ purchase.imei or '—' }}</dd>
+
+                    <dt class="col-sm-4 text-muted">Коробка</dt>
+                    <dd class="col-sm-8">{{ 'Да' if purchase.has_box else 'Нет' }}</dd>
+
+                    <dt class="col-sm-4 text-muted">Дата</dt>
+                    <dd class="col-sm-8">{{ purchase.created_at.strftime('%d.%m.%Y %H:%M') }}</dd>
+
+                    <dt class="col-sm-4 text-muted">Касса</dt>
+                    <dd class="col-sm-8">
+                        {% if purchase.cash_account %}
+                            <a href="{{ url_for('cash.account_detail', account_id=purchase.cash_account.id) }}">
+                                {{ purchase.cash_account.name }}
+                            </a>
+                        {% else %}—{% endif %}
+                    </dd>
+
+                    <dt class="col-sm-4 text-muted">Заметка</dt>
+                    <dd class="col-sm-8">{{ purchase.note or '—' }}</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h2 class="h6 mb-3">Действия</h2>
+                {% if purchase.phone and purchase.phone.status == 'in_stock' %}
+                    <p class="text-muted small">Телефон в наличии. Можно продать.</p>
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('sales.new_sale', phone_id=purchase.phone.id) }}"
+                           class="btn btn-primary">Продать просто</a>
+                        <a href="{{ url_for('installments.new_installment', phone_id=purchase.phone.id) }}"
+                           class="btn btn-outline-primary">Продать в рассрочку</a>
+                    </div>
+                {% elif purchase.phone %}
+                    <p class="text-muted small mb-0">Телефон уже не в наличии.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

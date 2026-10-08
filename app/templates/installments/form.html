@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Новая рассрочка — 22 Market Phone{% endblock %}
+
+{% block content %}
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <a href="{{ url_for('installments.list_installments') }}"
+           class="text-decoration-none small text-muted">
+            &larr; К списку рассрочек
+        </a>
+
+        <div class="card shadow-sm mt-2">
+            <div class="card-body">
+                <h1 class="h4 mb-4">Новая рассрочка</h1>
+
+                {% if not phones %}
+                    <div class="alert alert-warning">
+                        Нет телефонов в наличии. Сначала добавьте закупку.
+                    </div>
+                {% endif %}
+
+                {% if not customers %}
+                    <div class="alert alert-warning">
+                        Нет покупателей. Сначала добавьте покупателя
+                        <a href="{{ url_for('customers.new_customer') }}">здесь</a>.
+                    </div>
+                {% endif %}
+
+                {% if not usd_accounts %}
+                    <div class="alert alert-warning">
+                        Нет USD-кассы. Создайте счёт в разделе
+                        <a href="{{ url_for('cash.list_accounts') }}">Касса</a>.
+                    </div>
+                {% endif %}
+
+                <form method="post">
+                    <div class="mb-3">
+                        <label class="form-label">Телефон</label>
+                        <select name="phone_id" class="form-select" required>
+                            <option value="">— выберите —</option>
+                            {% for p in phones %}
+                                <option value="{{ p.id }}"
+                                    {% if form_data.get('phone_id') == p.id %}selected{% endif %}>
+                                    {{ p.brand }} {{ p.model }}
+                                    {% if p.purchase.storage %} · {{ p.purchase.storage }}{% endif %}
+                                    {% if p.purchase.color %} · {{ p.purchase.color }}{% endif %}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Покупатель</label>
+                        <select name="customer_id" class="form-select" required>
+                            <option value="">— выберите —</option>
+                            {% for c in customers %}
+                                <option value="{{ c.id }}"
+                                    {% if form_data.get('customer_id') == c.id %}selected{% endif %}>
+                                    {{ c.full_name }} · {{ c.phone }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Цена продажи (USD)</label>
+                            <input type="text" name="price" class="form-control" required
+                                   value="{{ form_data.get('price_raw', '') }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Предоплата (USD)</label>
+                            <input type="text" name="prepayment" class="form-control" required
+                                   value="{{ form_data.get('prepayment_raw', '0') }}">
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Процент на остаток (%)</label>
+                            <input type="text" name="percent" class="form-control" required
+                                   value="{{ form_data.get('percent_raw', '0') }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Срок (месяцев)</label>
+                            <input type="number" name="months" min="1" class="form-control" required
+                                   value="{{ form_data.get('months_raw', '') }}">
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Касса для предоплаты</label>
+                        <select name="cash_account_id" class="form-select" required>
+                            {% for acc in usd_accounts %}
+                                <option value="{{ acc.id }}"
+                                    {% if form_data.get('cash_account_id') == acc.id or (not form_data.get('cash_account_id') and default_account and acc.id == default_account.id) %}selected{% endif %}>
+                                    {{ acc.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100"
+                            {% if not phones or not customers or not usd_accounts %}disabled{% endif %}>
+                        Оформить рассрочку
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
