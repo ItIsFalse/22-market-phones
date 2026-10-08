@@ -28,6 +28,6 @@ class Config:
 
     USD_RATE = int(os.getenv("USD_RATE", 12700))
 
-    ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
-    ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "changeme123")
-    ADMIN_FULL_NAME = os.getenv("ADMIN_FULL_NAME", "Администратор")
+    ADMIN_USERNAME = os.getenv("ADMIN_USERNAME")
+    ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
+    ADMIN_FULL_NAME = os.getenv("ADMIN_FULL_NAME")

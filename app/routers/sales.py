@@ -103,8 +103,12 @@ def new_sale():
             )
 
         account = CashAccount.query.get(form["cash_account_id"])
-        if account is None:
-            flash("Касса не найдена", "danger")
+        if account.currency != form["currency"]:
+            flash(
+                f"Валюта кассы ({account.currency}) "
+                f"не совпадает с валютой продажи ({form['currency']})",
+                "danger",
+            )
             return render_template(
                 "sales/form.html",
                 phones=phones,
