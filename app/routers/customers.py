@@ -62,6 +62,8 @@ def list_customers():
 @login_required
 def new_customer():
     """Создание покупателя."""
+    next_url = request.values.get("next", "")
+
     if request.method == "POST":
         form = _read_form(request.form)
         errors = _validate(form)
@@ -69,7 +71,12 @@ def new_customer():
         if errors:
             for e in errors:
                 flash(e, "danger")
-            return render_template("customers/form.html", customer=None, form_data=form)
+            return render_template(
+                "customers/form.html",
+                customer=None,
+                form_data=form,
+                next_url=next_url,
+            )
 
         customer = Customer(
             full_name=form["full_name"],
@@ -88,9 +95,18 @@ def new_customer():
         db.session.commit()
 
         flash(f"Покупатель «{customer.full_name}» добавлен", "success")
+
+        # Если передан next — возвращаемся туда, иначе в карточку
+        if next_url and next_url.startswith("/"):
+            return redirect(next_url)
         return redirect(url_for("customers.customer_detail", customer_id=customer.id))
 
-    return render_template("customers/form.html", customer=None, form_data={})
+    return render_template(
+        "customers/form.html",
+        customer=None,
+        form_data={},
+        next_url=next_url,
+    )
 
 
 @customers_bp.route("/<int:customer_id>")
@@ -123,7 +139,12 @@ def edit_customer(customer_id):
         if errors:
             for e in errors:
                 flash(e, "danger")
-            return render_template("customers/form.html", customer=customer, form_data=form)
+            return render_template(
+                "customers/form.html",
+                customer=customer,
+                form_data=form,
+                next_url="",
+            )
 
         customer.full_name = form["full_name"]
         customer.phone = form["phone"]
@@ -154,7 +175,12 @@ def edit_customer(customer_id):
         "latitude": customer.latitude,
         "longitude": customer.longitude,
     }
-    return render_template("customers/form.html", customer=customer, form_data=form_data)
+    return render_template(
+        "customers/form.html",
+        customer=customer,
+        form_data=form_data,
+        next_url="",
+    )
 
 
 def _read_form(form):

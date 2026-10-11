@@ -181,7 +181,22 @@ def new_installment():
         .order_by(Phone.id.desc())
         .all()
     )
+    phones_json = [
+        {
+            "id": p.id,
+            "brand": p.brand,
+            "model": p.model,
+            "imei": p.imei or "",
+            "storage": p.purchase.storage or "",
+            "color": p.purchase.color or "",
+        }
+        for p in phones
+    ]
     customers = Customer.query.order_by(Customer.full_name).all()
+    customers_json = [
+        {"id": c.id, "full_name": c.full_name, "phone": c.phone or ""}
+        for c in customers
+    ]
     usd_accounts = (
         CashAccount.query
         .filter_by(currency=Currency.USD)
@@ -192,6 +207,14 @@ def new_installment():
 
     preselected_phone_id = request.args.get("phone_id", type=int)
 
+    ctx = dict(
+        phones=phones,
+        phones_json=phones_json,
+        customers_json=customers_json,
+        usd_accounts=usd_accounts,
+        default_account=default_account,
+    )
+
     if request.method == "POST":
         form = _read_form(request.form)
         errors = _validate(form)
@@ -199,49 +222,21 @@ def new_installment():
         if errors:
             for e in errors:
                 flash(e, "danger")
-            return render_template(
-                "installments/form.html",
-                phones=phones,
-                customers=customers,
-                usd_accounts=usd_accounts,
-                default_account=default_account,
-                form_data=form,
-            )
+            return render_template("installments/form.html", form_data=form, **ctx)
 
         phone = Phone.query.get(form["phone_id"])
         if phone is None or phone.status != "in_stock":
             flash("Телефон не найден или уже продан", "danger")
-            return render_template(
-                "installments/form.html",
-                phones=phones,
-                customers=customers,
-                usd_accounts=usd_accounts,
-                default_account=default_account,
-                form_data=form,
-            )
+            return render_template("installments/form.html", form_data=form, **ctx)
 
         customer = Customer.query.get(form["customer_id"])
         if customer is None:
             flash("Покупатель не найден", "danger")
-            return render_template(
-                "installments/form.html",
-                phones=phones,
-                customers=customers,
-                usd_accounts=usd_accounts,
-                default_account=default_account,
-                form_data=form,
-            )
+            return render_template("installments/form.html", form_data=form, **ctx)
 
         if form["prepayment"] > form["price"]:
             flash("Предоплата не может быть больше цены", "danger")
-            return render_template(
-                "installments/form.html",
-                phones=phones,
-                customers=customers,
-                usd_accounts=usd_accounts,
-                default_account=default_account,
-                form_data=form,
-            )
+            return render_template("installments/form.html", form_data=form, **ctx)
 
         if form["cash_account_id"]:
             account = CashAccount.query.get(form["cash_account_id"])
@@ -250,25 +245,11 @@ def new_installment():
 
         if account is None:
             flash("Нет USD-кассы для зачисления предоплаты", "danger")
-            return render_template(
-                "installments/form.html",
-                phones=phones,
-                customers=customers,
-                usd_accounts=usd_accounts,
-                default_account=default_account,
-                form_data=form,
-            )
+            return render_template("installments/form.html", form_data=form, **ctx)
 
         if account.currency != Currency.USD:
             flash("Касса для рассрочки должна быть в USD", "danger")
-            return render_template(
-                "installments/form.html",
-                phones=phones,
-                customers=customers,
-                usd_accounts=usd_accounts,
-                default_account=default_account,
-                form_data=form,
-            )
+            return render_template("installments/form.html", form_data=form, **ctx)
 
         try:
             installment = Installment(
@@ -306,14 +287,7 @@ def new_installment():
         except Exception as e:
             db.session.rollback()
             flash(f"Ошибка сохранения: {e}", "danger")
-            return render_template(
-                "installments/form.html",
-                phones=phones,
-                customers=customers,
-                usd_accounts=usd_accounts,
-                default_account=default_account,
-                form_data=form,
-            )
+            return render_template("installments/form.html", form_data=form, **ctx)
 
         flash("Рассрочка оформлена", "success")
         return redirect(url_for("installments.installment_detail", installment_id=installment.id))
@@ -321,15 +295,15 @@ def new_installment():
     form_data = {}
     if preselected_phone_id:
         form_data["phone_id"] = preselected_phone_id
+        # для отображения в автокомплите
+        preselected = Phone.query.get(preselected_phone_id)
+        if preselected:
+            extra = " · ".join(filter(None, [preselected.purchase.storage, preselected.purchase.color]))
+            form_data["phone_display"] = f"{preselected.brand} {preselected.model}"
+            if extra:
+                form_data["phone_display"] += f" · {extra}"
 
-    return render_template(
-        "installments/form.html",
-        phones=phones,
-        customers=customers,
-        usd_accounts=usd_accounts,
-        default_account=default_account,
-        form_data=form_data,
-    )
+    return render_template("installments/form.html", form_data=form_data, **ctx)
 
 
 @installments_bp.route("/<int:installment_id>")
@@ -347,12 +321,70 @@ def installment_detail(installment_id):
     )
     default_account = usd_accounts[0] if usd_accounts else None
 
+    # --- Прогресс оплаты ---
+    total = installment.total_with_percent
+    paid = installment.paid_total - Decimal(installment.prepayment)  # без предоплаты
+    if total and total > 0:
+        progress = int((paid / total) * 100)
+        if progress > 100:
+            progress = 100
+        if progress < 0:
+            progress = 0
+    else:
+        progress = 0
+
+    # --- Статусы графика ---
+    schedule = installment.payment_schedule
+    today = datetime.utcnow().date()
+
+    # сколько уже оплачено (без предоплаты)
+    paid_so_far = Decimal("0")
+    schedule_with_status = []
+    next_payment = None
+
+    for row in schedule:
+        due_date = row["due_date"].date()
+        amount = row["amount"]
+
+        # сколько нужно было бы оплатить к этому платежу включительно
+        cumulative_target = paid_so_far + amount
+        is_paid = paid >= cumulative_target
+        is_partial = (not is_paid) and (paid > paid_so_far)
+        is_overdue = (not is_paid) and (due_date < today)
+
+        if is_paid:
+            status = "paid"
+            icon = "✅"
+        elif is_overdue:
+            status = "overdue"
+            icon = "🔴"
+        elif is_partial:
+            status = "partial"
+            icon = "🟡"
+        else:
+            status = "future"
+            icon = "⚪"
+            if next_payment is None:
+                next_payment = row
+
+        schedule_with_status.append({
+            "index": row["index"],
+            "due_date": row["due_date"],
+            "amount": amount,
+            "status": status,
+            "icon": icon,
+        })
+        paid_so_far = cumulative_target
+
     return render_template(
         "installments/detail.html",
         installment=installment,
         payments=payments,
         usd_accounts=usd_accounts,
         default_account=default_account,
+        progress=progress,
+        schedule_with_status=schedule_with_status,
+        next_payment=next_payment,
     )
 
 
@@ -462,6 +494,8 @@ def _read_form(form):
     return {
         "phone_id": to_int("phone_id"),
         "customer_id": to_int("customer_id"),
+        "phone_display": val("phone_display"),
+        "customer_display": val("customer_display"),
         "price": to_decimal("price"),
         "prepayment": to_decimal("prepayment"),
         "percent": to_decimal("percent"),

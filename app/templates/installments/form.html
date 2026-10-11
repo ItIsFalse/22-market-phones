@@ -21,7 +21,7 @@
                     </div>
                 {% endif %}
 
-                {% if not customers %}
+                {% if not customers_json %}
                     <div class="alert alert-warning">
                         Нет покупателей. Сначала добавьте покупателя
                         <a href="{{ url_for('customers.new_customer') }}">здесь</a>.
@@ -37,31 +37,37 @@
 
                 <form method="post">
                     <div class="mb-3">
-                        <label class="form-label">Телефон</label>
-                        <select name="phone_id" class="form-select" required>
-                            <option value="">— выберите —</option>
-                            {% for p in phones %}
-                                <option value="{{ p.id }}"
-                                    {% if form_data.get('phone_id') == p.id %}selected{% endif %}>
-                                    {{ p.brand }} {{ p.model }}
-                                    {% if p.purchase.storage %} · {{ p.purchase.storage }}{% endif %}
-                                    {% if p.purchase.color %} · {{ p.purchase.color }}{% endif %}
-                                </option>
-                            {% endfor %}
-                        </select>
+                        <label class="form-label d-flex justify-content-between align-items-center mb-1">
+                            <span>Покупатель</span>
+                            <a href="{{ url_for('customers.new_customer', next=url_for('installments.new_installment')) }}"
+                               class="small text-decoration-none">
+                                + Создать покупателя
+                            </a>
+                        </label>
+                        <div class="customer-autocomplete" data-customers='{{ customers_json|tojson }}'>
+                            <input type="text"
+                                   class="form-control form-control-sm customer-search"
+                                   placeholder="Начните вводить имя или телефон…"
+                                   autocomplete="off"
+                                   value="{{ form_data.get('customer_display', '') }}">
+                            <input type="hidden" name="customer_id" class="customer-id"
+                                   value="{{ form_data.get('customer_id', '') }}">
+                            <ul class="customer-suggestions"></ul>
+                        </div>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">Покупатель</label>
-                        <select name="customer_id" class="form-select" required>
-                            <option value="">— выберите —</option>
-                            {% for c in customers %}
-                                <option value="{{ c.id }}"
-                                    {% if form_data.get('customer_id') == c.id %}selected{% endif %}>
-                                    {{ c.full_name }} · {{ c.phone }}
-                                </option>
-                            {% endfor %}
-                        </select>
+                        <label class="form-label mb-1">Телефон</label>
+                        <div class="phone-autocomplete" data-phones='{{ phones_json|tojson }}'>
+                            <input type="text"
+                                   class="form-control form-control-sm phone-search"
+                                   placeholder="Начните вводить бренд, модель или IMEI…"
+                                   autocomplete="off"
+                                   value="{{ form_data.get('phone_display', '') }}">
+                            <input type="hidden" name="phone_id" class="phone-id"
+                                   value="{{ form_data.get('phone_id', '') }}">
+                            <ul class="phone-suggestions"></ul>
+                        </div>
                     </div>
 
                     <div class="row g-3 mb-3">
@@ -103,7 +109,7 @@
                     </div>
 
                     <button type="submit" class="btn btn-primary w-100"
-                            {% if not phones or not customers or not usd_accounts %}disabled{% endif %}>
+                            {% if not phones or not customers_json or not usd_accounts %}disabled{% endif %}>
                         Оформить рассрочку
                     </button>
                 </form>

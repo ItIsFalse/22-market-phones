@@ -112,6 +112,9 @@ def new_purchase():
     """Форма закупки телефона."""
     accounts = CashAccount.query.order_by(CashAccount.currency, CashAccount.name).all()
 
+    default_usd_id = 1
+    default_uzs_id = 2
+
     if request.method == "POST":
         form = _read_form(request.form)
         errors = _validate(form)
@@ -122,6 +125,8 @@ def new_purchase():
             return render_template(
                 "purchases/form.html",
                 accounts=accounts,
+                default_usd_id=default_usd_id,
+                default_uzs_id=default_uzs_id,
                 form_data=form,
             )
 
@@ -131,6 +136,8 @@ def new_purchase():
             return render_template(
                 "purchases/form.html",
                 accounts=accounts,
+                default_usd_id=default_usd_id,
+                default_uzs_id=default_uzs_id,
                 form_data=form,
             )
 
@@ -142,6 +149,8 @@ def new_purchase():
             return render_template(
                 "purchases/form.html",
                 accounts=accounts,
+                default_usd_id=default_usd_id,
+                default_uzs_id=default_uzs_id,
                 form_data=form,
             )
 
@@ -183,6 +192,8 @@ def new_purchase():
             return render_template(
                 "purchases/form.html",
                 accounts=accounts,
+                default_usd_id=default_usd_id,
+                default_uzs_id=default_uzs_id,
                 form_data=form,
             )
 
@@ -192,6 +203,8 @@ def new_purchase():
     return render_template(
         "purchases/form.html",
         accounts=accounts,
+        default_usd_id=default_usd_id,
+        default_uzs_id=default_uzs_id,
         form_data={},
     )
 

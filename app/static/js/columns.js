@@ -47,20 +47,17 @@
         const headerByKey = {};
         ths.forEach(th => { headerByKey[th.dataset.colKey] = th; });
 
-        // 1. видимость
         state.forEach(item => {
             const th = headerByKey[item.key];
             if (!th) return;
             th.style.display = item.visible ? "" : "none";
         });
 
-        // 2. порядок заголовков
         state.forEach(item => {
             const th = headerByKey[item.key];
             if (th) theadRow.appendChild(th);
         });
 
-        // 3. порядок и видимость ячеек в каждой строке
         const bodyRows = table.querySelectorAll("tbody tr");
         bodyRows.forEach(tr => {
             if (tr.children.length === 1 && tr.children[0].hasAttribute("colspan")) {
@@ -166,10 +163,11 @@
         });
     });
 })();
+
+
 document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll("tr[data-href]").forEach(row => {
         row.addEventListener("click", (event) => {
-            // Игнорируем клик, если он по ссылке, кнопке или полю формы
             if (event.target.closest("a, button, input, select, textarea, label")) {
                 return;
             }
@@ -177,6 +175,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 });
+
 
 document.addEventListener("DOMContentLoaded", () => {
     const toggle = document.querySelector("[data-filter-toggle]");
@@ -204,3 +203,310 @@ document.addEventListener("DOMContentLoaded", () => {
         if (e.key === "Escape") hide();
     });
 });
+
+
+document.addEventListener("DOMContentLoaded", () => {
+    const currencySelect = document.getElementById("currency_select");
+    const accountSelect = document.getElementById("cash_account_select");
+    if (!currencySelect || !accountSelect) return;
+
+    const defaultUsd = accountSelect.dataset.defaultUsd;
+    const defaultUzs = accountSelect.dataset.defaultUzs;
+
+    function applyDefault() {
+        const cur = currencySelect.value;
+        let targetId = "";
+        if (cur === "USD") targetId = defaultUsd;
+        else if (cur === "UZS") targetId = defaultUzs;
+        if (!targetId) return;
+
+        for (const opt of accountSelect.options) {
+            if (opt.value === targetId) {
+                accountSelect.value = targetId;
+                break;
+            }
+        }
+    }
+
+    if (!accountSelect.value) {
+        applyDefault();
+    }
+
+    currencySelect.addEventListener("change", applyDefault);
+});
+
+
+document.addEventListener("DOMContentLoaded", () => {
+    document.querySelectorAll(".customer-autocomplete").forEach(initCustomerAutocomplete);
+    document.querySelectorAll(".phone-autocomplete").forEach(initPhoneAutocomplete);
+});
+
+
+function initCustomerAutocomplete(root) {
+    const customersRaw = root.dataset.customers;
+    if (!customersRaw) return;
+    let customers;
+    try {
+        customers = JSON.parse(customersRaw);
+    } catch (e) {
+        return;
+    }
+
+    const searchInput = root.querySelector(".customer-search");
+    const idInput = root.querySelector(".customer-id");
+    const list = root.querySelector(".customer-suggestions");
+    if (!searchInput || !list) return;
+
+    let activeIndex = -1;
+    let currentItems = [];
+
+    function normalize(str) {
+        return (str || "").toLowerCase().trim();
+    }
+
+    function filterCustomers(query) {
+        const q = normalize(query);
+        if (!q) return [];
+        const results = [];
+        for (const c of customers) {
+            const name = normalize(c.full_name);
+            const phone = normalize(c.phone);
+            if (name.includes(q) || phone.includes(q)) {
+                results.push(c);
+                if (results.length >= 20) break;
+            }
+        }
+        return results;
+    }
+
+    function render(items) {
+        list.innerHTML = "";
+        activeIndex = -1;
+        currentItems = items;
+
+        if (!items.length) {
+            const li = document.createElement("li");
+            li.className = "empty";
+            li.textContent = "Ничего не найдено";
+            list.appendChild(li);
+            list.classList.add("open");
+            return;
+        }
+
+        items.forEach((c, i) => {
+            const li = document.createElement("li");
+            li.dataset.index = i;
+            li.innerHTML = `${escapeHtml(c.full_name)}<span class="phone">${escapeHtml(c.phone)}</span>`;
+            li.addEventListener("click", () => selectCustomer(c));
+            list.appendChild(li);
+        });
+
+        list.classList.add("open");
+    }
+
+    function escapeHtml(str) {
+        return String(str || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    function selectCustomer(c) {
+        if (idInput) idInput.value = c.id;
+        searchInput.value = `${c.full_name} · ${c.phone}`;
+        list.classList.remove("open");
+        list.innerHTML = "";
+    }
+
+    function closeList() {
+        list.classList.remove("open");
+        list.innerHTML = "";
+        activeIndex = -1;
+    }
+
+    searchInput.addEventListener("input", () => {
+        const q = searchInput.value;
+        if (idInput) idInput.value = "";
+        if (!q.trim()) {
+            closeList();
+            return;
+        }
+        const items = filterCustomers(q);
+        render(items);
+    });
+
+    searchInput.addEventListener("keydown", (e) => {
+        if (!list.classList.contains("open")) return;
+        const items = currentItems;
+        if (!items.length) return;
+
+        if (e.key === "ArrowDown") {
+            e.preventDefault();
+            activeIndex = (activeIndex + 1) % items.length;
+            updateActive();
+        } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            activeIndex = (activeIndex - 1 + items.length) % items.length;
+            updateActive();
+        } else if (e.key === "Enter") {
+            if (activeIndex >= 0) {
+                e.preventDefault();
+                selectCustomer(items[activeIndex]);
+            }
+        } else if (e.key === "Escape") {
+            closeList();
+        }
+    });
+
+    function updateActive() {
+        const lis = list.querySelectorAll("li:not(.empty)");
+        lis.forEach((li, i) => {
+            li.classList.toggle("active", i === activeIndex);
+        });
+    }
+
+    document.addEventListener("click", (e) => {
+        if (!root.contains(e.target)) closeList();
+    });
+}
+
+
+function initPhoneAutocomplete(root) {
+    const phonesRaw = root.dataset.phones;
+    if (!phonesRaw) return;
+    let phones;
+    try {
+        phones = JSON.parse(phonesRaw);
+    } catch (e) {
+        return;
+    }
+
+    const searchInput = root.querySelector(".phone-search");
+    const idInput = root.querySelector(".phone-id");
+    const list = root.querySelector(".phone-suggestions");
+    if (!searchInput || !list) return;
+
+    let activeIndex = -1;
+    let currentItems = [];
+
+    function normalize(str) {
+        return (str || "").toLowerCase().trim();
+    }
+
+    function filterPhones(query) {
+        const q = normalize(query);
+        if (!q) return [];
+        const results = [];
+        for (const p of phones) {
+            const brand = normalize(p.brand);
+            const model = normalize(p.model);
+            const imei = normalize(p.imei);
+            if (brand.includes(q) || model.includes(q) || imei.includes(q)) {
+                results.push(p);
+                if (results.length >= 20) break;
+            }
+        }
+        return results;
+    }
+
+    function render(items) {
+        list.innerHTML = "";
+        activeIndex = -1;
+        currentItems = items;
+
+        if (!items.length) {
+            const li = document.createElement("li");
+            li.className = "empty";
+            li.textContent = "Ничего не найдено";
+            list.appendChild(li);
+            list.classList.add("open");
+            return;
+        }
+
+        items.forEach((p, i) => {
+            const li = document.createElement("li");
+            li.dataset.index = i;
+            const extra = [p.storage, p.color].filter(Boolean).join(" · ");
+            let html = `<span class="fw-semibold">${escapeHtml(p.brand)} ${escapeHtml(p.model)}</span>`;
+            if (extra) html += `<span class="phone">${escapeHtml(extra)}</span>`;
+            if (p.imei) html += `<span class="phone">IMEI: ${escapeHtml(p.imei)}</span>`;
+            li.innerHTML = html;
+            li.addEventListener("click", () => selectPhone(p));
+            list.appendChild(li);
+        });
+
+        list.classList.add("open");
+    }
+
+    function escapeHtml(str) {
+        return String(str || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    function selectPhone(p) {
+        if (idInput) idInput.value = p.id;
+        const extra = [p.storage, p.color].filter(Boolean).join(" · ");
+        let text = `${p.brand} ${p.model}`;
+        if (extra) text += ` · ${extra}`;
+        searchInput.value = text;
+        list.classList.remove("open");
+        list.innerHTML = "";
+    }
+
+    function closeList() {
+        list.classList.remove("open");
+        list.innerHTML = "";
+        activeIndex = -1;
+    }
+
+    searchInput.addEventListener("input", () => {
+        const q = searchInput.value;
+        if (idInput) idInput.value = "";
+        if (!q.trim()) {
+            closeList();
+            return;
+        }
+        const items = filterPhones(q);
+        render(items);
+    });
+
+    searchInput.addEventListener("keydown", (e) => {
+        if (!list.classList.contains("open")) return;
+        const items = currentItems;
+        if (!items.length) return;
+
+        if (e.key === "ArrowDown") {
+            e.preventDefault();
+            activeIndex = (activeIndex + 1) % items.length;
+            updateActive();
+        } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            activeIndex = (activeIndex - 1 + items.length) % items.length;
+            updateActive();
+        } else if (e.key === "Enter") {
+            if (activeIndex >= 0) {
+                e.preventDefault();
+                selectPhone(items[activeIndex]);
+            }
+        } else if (e.key === "Escape") {
+            closeList();
+        }
+    });
+
+    function updateActive() {
+        const lis = list.querySelectorAll("li:not(.empty)");
+        lis.forEach((li, i) => {
+            li.classList.toggle("active", i === activeIndex);
+        });
+    }
+
+    document.addEventListener("click", (e) => {
+        if (!root.contains(e.target)) closeList();
+    });
+}
