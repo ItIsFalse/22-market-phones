@@ -143,6 +143,20 @@ def add_transaction(debtor_id):
         flash("Сумма должна быть больше нуля", "danger")
         return redirect(url_for("debtors.debtor_detail", debtor_id=debtor.id))
 
+    if type_ == "repay":
+        debt = debtor.debt_uzs if currency == Currency.UZS else debtor.debt_usd
+        if amount > debt:
+            if currency == Currency.USD:
+                debt_str = f"$ {debt:,.0f}".replace(",", " ")
+            else:
+                debt_str = f"{debt:,.0f} сум".replace(",", " ")
+            flash(
+                f"Нельзя вернуть больше, чем должны. Текущий долг: {debt_str}. "
+                f"Если хотите дать ещё в долг — создайте отдельную запись долга.",
+                "danger",
+            )
+            return redirect(url_for("debtors.debtor_detail", debtor_id=debtor.id))
+
     tx = DebtorTransaction(
         debtor=debtor,
         type=type_,
