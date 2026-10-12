@@ -68,9 +68,45 @@ def new_account():
 @login_required
 def account_detail(account_id):
     """Страница счёта: баланс, история операций, форма ручной проводки."""
+    from datetime import datetime, timedelta
+    from decimal import Decimal
+    from app.models import Sale
+
     account = CashAccount.query.get_or_404(account_id)
     transactions = account.transactions.limit(200).all()
-    return render_template("cash/detail.html", account=account, transactions=transactions)
+
+    # Наценка за последние 7 дней (по всем продажам, не только этого счёта)
+    today = datetime.utcnow().date()
+    date_from = today - timedelta(days=7)
+    date_to_end = today + timedelta(days=1)
+
+    sales = (
+        Sale.query
+        .filter(Sale.sold_at >= date_from)
+        .filter(Sale.sold_at < date_to_end)
+        .all()
+    )
+    margin_usd = Decimal("0")
+    margin_uzs = Decimal("0")
+    for s in sales:
+        purchase = s.phone.purchase if s.phone else None
+        if purchase is None:
+            continue
+        if s.currency != purchase.currency:
+            continue
+        margin = Decimal(s.price) - Decimal(purchase.price)
+        if s.currency == "USD":
+            margin_usd += margin
+        elif s.currency == "UZS":
+            margin_uzs += margin
+
+    return render_template(
+        "cash/detail.html",
+        account=account,
+        transactions=transactions,
+        margin_usd=margin_usd,
+        margin_uzs=margin_uzs,
+    )
 
 
 @cash_bp.route("/<int:account_id>/transaction", methods=["POST"])

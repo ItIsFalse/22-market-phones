@@ -10,113 +10,115 @@
             rel="stylesheet">
     <style>
         .phone-autocomplete {
-    position: relative;
-}
+            position: relative;
+        }
 
-.phone-suggestions {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    z-index: 1050;
-    background: #fff;
-    border: 1px solid #ced4da;
-    border-top: none;
-    border-radius: 0 0 6px 6px;
-    max-height: 240px;
-    overflow-y: auto;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    display: none;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.08);
-}
+        .phone-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            z-index: 1050;
+            background: #fff;
+            border: 1px solid #ced4da;
+            border-top: none;
+            border-radius: 0 0 6px 6px;
+            max-height: 240px;
+            overflow-y: auto;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            display: none;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+        }
 
-.phone-suggestions.open {
-    display: block;
-}
+        .phone-suggestions.open {
+            display: block;
+        }
 
-.phone-suggestions li {
-    padding: 6px 12px;
-    cursor: pointer;
-    font-size: 0.875rem;
-    border-bottom: 1px solid #f1f3f5;
-}
+        .phone-suggestions li {
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            border-bottom: 1px solid #f1f3f5;
+        }
 
-.phone-suggestions li:last-child {
-    border-bottom: none;
-}
+        .phone-suggestions li:last-child {
+            border-bottom: none;
+        }
 
-.phone-suggestions li:hover,
-.phone-suggestions li.active {
-    background: #e7f1ff;
-}
+        .phone-suggestions li:hover,
+        .phone-suggestions li.active {
+            background: #e7f1ff;
+        }
 
-.phone-suggestions li .phone {
-    color: #6c757d;
-    font-size: 0.8rem;
-    margin-left: 6px;
-}
+        .phone-suggestions li .phone {
+            color: #6c757d;
+            font-size: 0.8rem;
+            margin-left: 6px;
+        }
 
-.phone-suggestions .empty {
-    color: #adb5bd;
-    font-style: italic;
-    cursor: default;
-}
+        .phone-suggestions .empty {
+            color: #adb5bd;
+            font-style: italic;
+            cursor: default;
+        }
+
         .customer-autocomplete {
-    position: relative;
-}
+            position: relative;
+        }
 
-.customer-suggestions {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    z-index: 1050;
-    background: #fff;
-    border: 1px solid #ced4da;
-    border-top: none;
-    border-radius: 0 0 6px 6px;
-    max-height: 240px;
-    overflow-y: auto;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    display: none;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.08);
-}
+        .customer-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            z-index: 1050;
+            background: #fff;
+            border: 1px solid #ced4da;
+            border-top: none;
+            border-radius: 0 0 6px 6px;
+            max-height: 240px;
+            overflow-y: auto;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            display: none;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+        }
 
-.customer-suggestions.open {
-    display: block;
-}
+        .customer-suggestions.open {
+            display: block;
+        }
 
-.customer-suggestions li {
-    padding: 6px 12px;
-    cursor: pointer;
-    font-size: 0.875rem;
-    border-bottom: 1px solid #f1f3f5;
-}
+        .customer-suggestions li {
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            border-bottom: 1px solid #f1f3f5;
+        }
 
-.customer-suggestions li:last-child {
-    border-bottom: none;
-}
+        .customer-suggestions li:last-child {
+            border-bottom: none;
+        }
 
-.customer-suggestions li:hover,
-.customer-suggestions li.active {
-    background: #e7f1ff;
-}
+        .customer-suggestions li:hover,
+        .customer-suggestions li.active {
+            background: #e7f1ff;
+        }
 
-.customer-suggestions li .phone {
-    color: #6c757d;
-    font-size: 0.8rem;
-    margin-left: 6px;
-}
+        .customer-suggestions li .phone {
+            color: #6c757d;
+            font-size: 0.8rem;
+            margin-left: 6px;
+        }
 
-.customer-suggestions .empty {
-    color: #adb5bd;
-    font-style: italic;
-    cursor: default;
-}
+        .customer-suggestions .empty {
+            color: #adb5bd;
+            font-style: italic;
+            cursor: default;
+        }
+
         .section-block {
             background: #f8f9fa;
             border: 1px solid #e9ecef;
@@ -195,7 +197,7 @@
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
     <div class="container">
-        <a class="navbar-brand" href="{{ url_for('main.index') }}">22 Market Phone</a>
+        <a class="navbar-brand" href="{{ url_for('main.index') }}">MALIKA A22 ALISHER</a>
 
         {% if current_user.is_authenticated %}
         <ul class="navbar-nav me-auto">
@@ -216,6 +218,9 @@
         <ul class="navbar-nav align-items-center">
             <li class="nav-item">
                 <a class="nav-link" href="{{ url_for('cash.list_accounts') }}">Касса</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('reports.index') }}">Отчёты</a>
             </li>
             <li class="nav-item">
                 <a class="nav-link" href="{{ url_for('debtors.list_debtors') }}">Должники</a>

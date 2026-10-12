@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="uz">
+<head>
+    <meta charset="utf-8">
+    <title>Shartnoma #{{ installment.id }}</title>
+    <style>
+        body {
+            font-family: "Times New Roman", serif;
+            font-size: 14pt;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 30px auto;
+            padding: 20px;
+            color: #000;
+        }
+        .header {
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .seller-line {
+            text-align: right;
+            margin-top: 20px;
+            margin-bottom: 40px;
+        }
+        h1 {
+            text-align: center;
+            font-size: 20pt;
+            margin: 40px 0;
+            letter-spacing: 3px;
+        }
+        p {
+            text-align: justify;
+            margin-bottom: 14px;
+        }
+        .underline {
+            border-bottom: 1px solid #000;
+            display: inline-block;
+            min-width: 200px;
+        }
+        .signature-block {
+            margin-top: 40px;
+        }
+        .signature-line {
+            display: inline-block;
+            border-bottom: 1px solid #000;
+            min-width: 300px;
+        }
+        .bottom-block {
+            margin-top: 30px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .bottom-block div {
+            width: 48%;
+        }
+        .no-print {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        @media print {
+            .no-print { display: none; }
+            body { margin: 0; padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="no-print">
+    <button onclick="window.print()">🖨 Chop etish / Печать</button>
+    <button onclick="window.close()">Yopish / Закрыть</button>
+</div>
+
+<div class="header">
+    Toshkent shahar Shayxontur tumani<br>
+    Malika savdo bozori A-22 do‘koni
+</div>
+
+<div class="seller-line">
+    {{ shop_seller_name }} ga
+</div>
+
+<h1>SHARTNOMA</h1>
+
+<p>
+    Men, <strong>{{ customer.full_name }}</strong>,
+    {{ today_str }} yil kuni Toshkent shahar Shayxontur tumani Malika savdo bozori
+    A-22 do‘konidan,
+    <strong>{{ phone.brand }}, {{ phone.model }}, {{ phone.imei }}</strong>
+    seriya raqamli uyali telefonini "Nasiyo Savdo" asosida
+    <strong>{{ '{:,.0f}'.format(installment.monthly_payment).replace(',', ' ') }} $</strong>
+    AQSH dollaridan to‘lab borishiga savdolashdim.
+    Telefonni o‘z aybim bilan yo‘qotib yoki buzub qo‘ygan holatda ham to‘lovni
+    har oyning <strong>{{ salary_day }}</strong> sanasidan ya’ni
+    <strong>{{ first_payment_date.strftime('%d.%m.%Y') if first_payment_date else '—' }}</strong> dan
+    <strong>{{ last_payment_date.strftime('%d.%m.%Y') if last_payment_date else '—' }}</strong> gacha
+    to‘lab boraman.
+</p>
+
+<p>
+    1) Berilgan mulkni sotib yuborish va boshqa shaxslarga berib yubormaslik bilan
+    va to‘lovni o‘z vaqtida to‘lay olmasam telefon bloklanishi (iCloud) va ichidagi
+    barcha ma’lumotlar o‘chib ketish bilan ogohlantirildim.
+</p>
+
+<p>
+    2) Agar o‘z vaqtida to‘lay olmasam telefonni qaytarib olib qo‘yishingizga,
+    oldindan to‘lagan va har oylik to‘lovni olib qolishingizga va tegishli joyga
+    murojat qilishingizga qarshi emasman.
+</p>
+
+<p>
+    3) Telefonni karobkasi <span class="underline">{{ 'bor' if phone.purchase.has_box else 'yo‘q' }}</span>
+    va uni texnik holati haqida ma’lumot oldim.
+</p>
+
+<p>
+    Shartnoma bilan tanishib chiqdim va yuqorida ko‘rsatilgan barcha shartlarga
+    hech qanday e’tirozim yo‘q.
+</p>
+
+<div class="signature-block">
+    <p>
+        <strong>{{ customer.full_name }}</strong>
+        &nbsp;&nbsp; Imzo: <span class="signature-line"></span>
+    </p>
+    <p>
+        Ish joyi: <span class="signature-line"></span>
+    </p>
+    <p>
+        (Vaqtinchalik) Yashash manzili: {{ customer.address or '___________________________' }}
+    </p>
+    <p>
+        F.I.O. {{ shop_seller_name }}
+    </p>
+    <p>
+        Sana: {{ today_str }} &nbsp;&nbsp; Imzo: <span class="signature-line"></span>
+    </p>
+</div>
+
+<div class="bottom-block">
+    <div>
+        <strong>A-22</strong> Tel: {{ shop_phone }}
+    </div>
+    <div>
+        <strong>Mijoz</strong> Tel: {{ customer.phone }}
+    </div>
+</div>
+
+</body>
+</html>

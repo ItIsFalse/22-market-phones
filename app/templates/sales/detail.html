@@ -67,14 +67,7 @@
                         {% endif %}
                     </dd>
 
-                    <dt class="col-sm-4 text-muted">Касса</dt>
-                    <dd class="col-sm-8">
-                        {% if sale.cash_account %}
-                            <a href="{{ url_for('cash.account_detail', account_id=sale.cash_account.id) }}">
-                                {{ sale.cash_account.name }}
-                            </a>
-                        {% else %}—{% endif %}
-                    </dd>
+
                 </dl>
             </div>
         </div>

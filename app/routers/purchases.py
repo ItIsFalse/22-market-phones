@@ -1,3 +1,4 @@
+from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
 from flask import Blueprint, render_template, redirect, url_for, flash, request
@@ -114,6 +115,7 @@ def new_purchase():
 
     default_usd_id = 1
     default_uzs_id = 2
+    today_str = datetime.utcnow().strftime("%Y-%m-%d")
 
     if request.method == "POST":
         form = _read_form(request.form)
@@ -128,6 +130,7 @@ def new_purchase():
                 default_usd_id=default_usd_id,
                 default_uzs_id=default_uzs_id,
                 form_data=form,
+                today_str=today_str,
             )
 
         account = CashAccount.query.get(form["cash_account_id"])
@@ -139,6 +142,7 @@ def new_purchase():
                 default_usd_id=default_usd_id,
                 default_uzs_id=default_uzs_id,
                 form_data=form,
+                today_str=today_str,
             )
 
         if account.currency != form["currency"]:
@@ -152,7 +156,18 @@ def new_purchase():
                 default_usd_id=default_usd_id,
                 default_uzs_id=default_uzs_id,
                 form_data=form,
+                today_str=today_str,
             )
+
+        # --- Дата закупки ---
+        purchased_at_raw = form["purchased_at_raw"]
+        if purchased_at_raw:
+            try:
+                purchased_at = datetime.strptime(purchased_at_raw, "%Y-%m-%d")
+            except ValueError:
+                purchased_at = datetime.utcnow()
+        else:
+            purchased_at = datetime.utcnow()
 
         try:
             purchase = PhonePurchase(
@@ -169,6 +184,7 @@ def new_purchase():
                 currency=form["currency"],
                 note=form["note"],
                 cash_account_id=account.id,
+                created_at=purchased_at,
             )
             db.session.add(purchase)
             db.session.flush()
@@ -176,7 +192,7 @@ def new_purchase():
             phone = Phone(purchase=purchase, status="in_stock")
             db.session.add(phone)
 
-            apply_transaction(
+            tx = apply_transaction(
                 account=account,
                 type_="expense",
                 amount=form["price"],
@@ -184,6 +200,7 @@ def new_purchase():
                 source_type="purchase",
                 source_id=purchase.id,
             )
+            tx.created_at = purchased_at
 
             db.session.commit()
         except Exception as e:
@@ -195,6 +212,7 @@ def new_purchase():
                 default_usd_id=default_usd_id,
                 default_uzs_id=default_uzs_id,
                 form_data=form,
+                today_str=today_str,
             )
 
         flash("Закупка сохранена", "success")
@@ -206,6 +224,7 @@ def new_purchase():
         default_usd_id=default_usd_id,
         default_uzs_id=default_uzs_id,
         form_data={},
+        today_str=today_str,
     )
 
 
@@ -216,6 +235,16 @@ def purchase_detail(purchase_id):
     purchase = PhonePurchase.query.get_or_404(purchase_id)
     return render_template("purchases/detail.html", purchase=purchase)
 
+@purchases_bp.route("/<int:purchase_id>/note", methods=["POST"])
+@login_required
+def purchase_note(purchase_id):
+    """Редактирование только заметки закупки."""
+    purchase = PhonePurchase.query.get_or_404(purchase_id)
+    note = (request.form.get("note") or "").strip()
+    purchase.note = note
+    db.session.commit()
+    flash("Заметка обновлена", "success")
+    return redirect(url_for("purchases.purchase_detail", purchase_id=purchase.id))
 
 def _read_form(form):
     """Считать данные формы в обычный dict."""
@@ -250,6 +279,7 @@ def _read_form(form):
         "note": val("note"),
         "cash_account_id": cash_account_id,
         "cash_account_id_raw": cash_account_id_raw,
+        "purchased_at_raw": val("purchased_at"),
     }
 
 

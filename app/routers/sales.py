@@ -66,7 +66,7 @@ def list_sales():
 @sales_bp.route("/new", methods=["GET", "POST"])
 @login_required
 def new_sale():
-    """Форма простой продажи."""
+    """Форма простой продажи. Всегда USD, касса — первая USD."""
     phones = (
         Phone.query
         .filter_by(status="in_stock")
@@ -74,7 +74,14 @@ def new_sale():
         .order_by(Phone.id.desc())
         .all()
     )
-    accounts = CashAccount.query.order_by(CashAccount.currency, CashAccount.name).all()
+
+    # дефолтная USD-касса — первая по id
+    default_account = (
+        CashAccount.query
+        .filter_by(currency=Currency.USD)
+        .order_by(CashAccount.id)
+        .first()
+    )
 
     preselected_phone_id = request.args.get("phone_id", type=int)
 
@@ -88,7 +95,6 @@ def new_sale():
             return render_template(
                 "sales/form.html",
                 phones=phones,
-                accounts=accounts,
                 form_data=form,
             )
 
@@ -98,23 +104,18 @@ def new_sale():
             return render_template(
                 "sales/form.html",
                 phones=phones,
-                accounts=accounts,
                 form_data=form,
             )
 
-        account = CashAccount.query.get(form["cash_account_id"])
-        if account.currency != form["currency"]:
-            flash(
-                f"Валюта кассы ({account.currency}) "
-                f"не совпадает с валютой продажи ({form['currency']})",
-                "danger",
-            )
+        if default_account is None:
+            flash("Нет USD-кассы. Создайте счёт в разделе «Касса».", "danger")
             return render_template(
                 "sales/form.html",
                 phones=phones,
-                accounts=accounts,
                 form_data=form,
             )
+
+        account = default_account
 
         try:
             sale = Sale(
@@ -122,7 +123,7 @@ def new_sale():
                 client_name=form["client_name"],
                 client_contact=form["client_contact"],
                 price=form["price"],
-                currency=form["currency"],
+                currency=Currency.USD,
                 cash_account_id=account.id,
             )
             db.session.add(sale)
@@ -146,7 +147,6 @@ def new_sale():
             return render_template(
                 "sales/form.html",
                 phones=phones,
-                accounts=accounts,
                 form_data=form,
             )
 
@@ -160,7 +160,6 @@ def new_sale():
     return render_template(
         "sales/form.html",
         phones=phones,
-        accounts=accounts,
         form_data=form_data,
     )
 
@@ -205,7 +204,6 @@ def sale_delete(sale_id):
     flash("Продажа отменена, телефон возвращён в наличие", "info")
     return redirect(url_for("sales.list_sales"))
 
-
 def _read_form(form):
     """Считать данные формы."""
     def val(key, default=""):
@@ -230,7 +228,7 @@ def _read_form(form):
         "client_contact": val("client_contact"),
         "price": price,
         "price_raw": price_raw,
-        "currency": val("currency"),
+        "currency": val("currency") or Currency.USD,
         "cash_account_id": to_int("cash_account_id"),
     }
 
@@ -243,9 +241,5 @@ def _validate(form):
         errors.append("Выберите телефон")
     if form["price"] is None or form["price"] <= 0:
         errors.append("Цена должна быть числом больше нуля")
-    if form["currency"] not in Currency.CHOICES:
-        errors.append("Выберите валюту продажи")
-    if form["cash_account_id"] is None:
-        errors.append("Выберите кассу")
 
     return errors

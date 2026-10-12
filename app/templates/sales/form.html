@@ -55,30 +55,11 @@
                         </div>
                     </div>
 
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-4">
-                            <label class="form-label">Цена продажи</label>
+                                        <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label">Цена продажи (USD)</label>
                             <input type="text" name="price" class="form-control" required
                                    value="{{ form_data.get('price_raw', '') }}">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Валюта</label>
-                            <select name="currency" class="form-select" required>
-                                <option value="USD" {% if form_data.get('currency') == 'USD' %}selected{% endif %}>USD</option>
-                                <option value="UZS" {% if form_data.get('currency') == 'UZS' %}selected{% endif %}>UZS</option>
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Касса</label>
-                            <select name="cash_account_id" class="form-select" required>
-                                <option value="">— выберите —</option>
-                                {% for acc in accounts %}
-                                    <option value="{{ acc.id }}"
-                                        {% if form_data.get('cash_account_id') == acc.id %}selected{% endif %}>
-                                        {{ acc.name }} ({{ acc.currency }})
-                                    </option>
-                                {% endfor %}
-                            </select>
                         </div>
                     </div>
 

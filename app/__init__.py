@@ -29,6 +29,7 @@ def create_app(config_class=Config):
     from app.routers.installments import installments_bp
     from app.routers.customers import customers_bp
     from app.routers.debtors import debtors_bp
+    from app.routers.reports import reports_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(main_bp)
@@ -38,6 +39,7 @@ def create_app(config_class=Config):
     app.register_blueprint(installments_bp)
     app.register_blueprint(customers_bp)
     app.register_blueprint(debtors_bp)
+    app.register_blueprint(reports_bp)
 
     with app.app_context():
         db.create_all()

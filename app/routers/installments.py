@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_required
 from sqlalchemy import or_
 
@@ -11,7 +11,11 @@ from app.models import (
     Phone, Customer, CashAccount, Currency,
 )
 from app.services.cash import apply_transaction, get_default_account
+import os
+from io import BytesIO
 
+from docx import Document
+from flask import send_file
 
 installments_bp = Blueprint("installments", __name__, url_prefix="/installments")
 
@@ -469,6 +473,142 @@ def add_payment(installment_id):
     flash("Платёж внесён", "success")
     return redirect(url_for("installments.installment_detail", installment_id=installment.id))
 
+@installments_bp.route("/<int:installment_id>/contract")
+@login_required
+def contract(installment_id):
+    """Просмотр договора рассрочки."""
+    from datetime import datetime
+
+    installment = Installment.query.get_or_404(installment_id)
+    customer = installment.customer
+    phone = installment.phone
+    purchase = phone.purchase
+    schedule = installment.payment_schedule
+
+    # дата договора — сегодня
+    today = datetime.utcnow()
+
+    # первая и последняя даты платежей
+    first_payment_date = schedule[0]["due_date"] if schedule else None
+    last_payment_date = schedule[-1]["due_date"] if schedule else None
+
+    # день месяца для оплаты — из salary_day клиента, если есть, иначе из первой даты
+    if customer.salary_day:
+        salary_day = customer.salary_day
+    elif first_payment_date:
+        salary_day = first_payment_date.day
+    else:
+        salary_day = ""
+
+    return render_template(
+        "installments/contract.html",
+        installment=installment,
+        customer=customer,
+        phone=phone,
+        purchase=purchase,
+        today=today,
+        today_str=today.strftime('%d.%m.%Y'),
+        first_payment_date=first_payment_date,
+        last_payment_date=last_payment_date,
+        salary_day=salary_day,
+        shop_name=current_app.config.get("SHOP_NAME", "22 Market Phone"),
+        shop_phone=current_app.config.get("SHOP_PHONE", ""),
+        shop_address=current_app.config.get("SHOP_ADDRESS", ""),
+        shop_seller_name=current_app.config.get("ADMIN_FULL_NAME", "Владелец магазина"),
+    )
+
+@installments_bp.route("/<int:installment_id>/contract.docx")
+@login_required
+def contract_docx(installment_id):
+    """Скачать договор в .docx."""
+    installment = Installment.query.get_or_404(installment_id)
+    customer = installment.customer
+    phone = installment.phone
+    schedule = installment.payment_schedule
+
+    today = datetime.utcnow()
+    today_str = today.strftime('%d.%m.%Y')
+
+    first_payment_date = schedule[0]["due_date"] if schedule else None
+    last_payment_date = schedule[-1]["due_date"] if schedule else None
+
+    if customer.salary_day:
+        salary_day = customer.salary_day
+    elif first_payment_date:
+        salary_day = first_payment_date.day
+    else:
+        salary_day = ""
+
+    replacements = {
+        "{customer_full_name}": customer.full_name or "",
+        "{customer_address}": customer.address or "",
+        "{customer_phone}": customer.phone or "",
+        "{today_str}": today_str,
+        "{phone_brand}": phone.brand or "",
+        "{phone_model}": phone.model or "",
+        "{phone_imei}": phone.imei or "",
+        "{monthly_payment}": f"{installment.monthly_payment:,.0f}".replace(",", " "),
+        "{salary_day}": str(salary_day),
+        "{first_payment_date}": first_payment_date.strftime('%d.%m.%Y') if first_payment_date else "",
+        "{last_payment_date}": last_payment_date.strftime('%d.%m.%Y') if last_payment_date else "",
+        "{shop_phone}": current_app.config.get("SHOP_PHONE", ""),
+        "{admin_full_name}": current_app.config.get("ADMIN_FULL_NAME", ""),
+    }
+
+    template_path = os.path.join(
+        current_app.root_path, "static", "contracts", "example.docx"
+    )
+
+    if not os.path.exists(template_path):
+        flash("Шаблон договора не найден (example.docx)", "danger")
+        return redirect(url_for("installments.installment_detail", installment_id=installment_id))
+
+    doc = Document(template_path)
+
+    # замена в параграфах
+    for paragraph in doc.paragraphs:
+        _replace_in_paragraph(paragraph, replacements)
+
+    # замена в таблицах
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for paragraph in cell.paragraphs:
+                    _replace_in_paragraph(paragraph, replacements)
+
+    buffer = BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+
+    # безопасное имя файла
+    safe_name = (customer.full_name or f"installment_{installment.id}").replace("/", "_").replace("\\", "_")
+    filename = f"shartnoma_{installment.id}_{safe_name}.docx"
+
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+
+
+def _replace_in_paragraph(paragraph, replacements):
+    """Заменяет текст в параграфе целиком, собирая все runs."""
+    # собираем весь текст параграфа
+    full_text = "".join(run.text for run in paragraph.runs)
+
+    if not any(key in full_text for key in replacements):
+        return
+
+    new_text = full_text
+    for key, val in replacements.items():
+        new_text = new_text.replace(key, val)
+
+    # пишем в первый run, остальные очищаем
+    if paragraph.runs:
+        paragraph.runs[0].text = new_text
+        for run in paragraph.runs[1:]:
+            run.text = ""
 
 def _read_form(form):
     """Считать данные формы."""

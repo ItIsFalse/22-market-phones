@@ -12,9 +12,21 @@
 
         <div class="card shadow-sm mt-2">
             <div class="card-body p-3">
-                <h1 class="h6 mb-4">Новая закупка</h1>
+                                <h1 class="h6 mb-4">Новая закупка</h1>
 
                 <form method="post">
+                    <div class="section-block">
+                        <h2 class="section-title">Дата закупки</h2>
+                        <div class="row g-2">
+                            <div class="col-md-4">
+                                <label class="form-label small mb-0">Дата</label>
+                                <input type="date" name="purchased_at"
+                                       class="form-control form-control-sm"
+                                       value="{{ form_data.get('purchased_at_raw', '') or today_str }}">
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="section-block">
                         <h2 class="section-title">Продавец</h2>
                         <div class="row g-2">

@@ -27,6 +27,12 @@
                 {{ '{:,.0f}'.format(account.balance).replace(',', ' ') }} сум
             {% endif %}
         </div>
+        <div class="text-muted small mt-1">
+            Наценка за 7 дней:
+            <span class="text-success fw-bold">
+                $ {{ '{:,.0f}'.format(margin_usd).replace(',', ' ') }}
+            </span>
+        </div>
     </div>
 </div>
 
