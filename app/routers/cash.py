@@ -45,6 +45,9 @@ def new_account():
             errors.append("Начальный баланс должен быть числом")
             initial_value = Decimal("0")
 
+        if initial_value < 0:
+            errors.append("Начальный баланс не может быть отрицательным")
+
         if errors:
             for e in errors:
                 flash(e, "danger")

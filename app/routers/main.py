@@ -71,7 +71,7 @@ def _due_installments():
         if not schedule:
             continue
 
-        due_rows = [row for row in schedule if row["due_date"].date() <= today]
+        due_rows = [row for row in schedule if row["due_date"].date() < today]
         if not due_rows:
             continue
 

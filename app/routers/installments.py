@@ -154,7 +154,7 @@ def _calc_summary(currency):
             pending += left
 
         schedule = inst.payment_schedule
-        due_rows = [row for row in schedule if row["due_date"].date() <= today]
+        due_rows = [row for row in schedule if row["due_date"].date() < today]
         should_paid = sum((row["amount"] for row in due_rows), Decimal("0"))
         actually_paid = inst.paid_total - Decimal(inst.prepayment)
         diff = should_paid - actually_paid
