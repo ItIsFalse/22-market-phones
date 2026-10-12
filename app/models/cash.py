@@ -20,7 +20,6 @@ class CashAccount(db.Model):
     transactions = db.relationship(
         "CashTransaction",
         back_populates="account",
-        cascade="all, delete-orphan",
         lazy="dynamic",
         order_by="CashTransaction.created_at.desc()",
     )

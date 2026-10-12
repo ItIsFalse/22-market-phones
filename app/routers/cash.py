@@ -111,8 +111,8 @@ def add_transaction(account_id):
 @cash_bp.route("/<int:account_id>/delete", methods=["POST"])
 @login_required
 def account_delete(account_id):
-    """Удаление счёта. Только если он не используется в продажах/закупках."""
-    from app.models import Sale, PhonePurchase
+    """Удаление счёта. Только если он не используется."""
+    from app.models import Sale, PhonePurchase, CashTransaction
 
     account = CashAccount.query.get_or_404(account_id)
 
@@ -122,6 +122,10 @@ def account_delete(account_id):
 
     if PhonePurchase.query.filter_by(cash_account_id=account.id).first():
         flash("Нельзя удалить счёт: на нём есть закупки телефонов", "danger")
+        return redirect(url_for("cash.account_detail", account_id=account.id))
+
+    if CashTransaction.query.filter_by(account_id=account.id).first():
+        flash("Нельзя удалить счёт: на нём есть операции. Сначала удалите или перенесите их.", "danger")
         return redirect(url_for("cash.account_detail", account_id=account.id))
 
     name = account.name
