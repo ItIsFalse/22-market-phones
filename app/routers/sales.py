@@ -1,11 +1,11 @@
 from decimal import Decimal, InvalidOperation
-
+from datetime import datetime
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required
 from sqlalchemy import or_
 
 from app.extensions import db
-from app.models import Phone, Sale, CashAccount, Currency
+from app.models import Phone, Sale, CashAccount, Currency, CashTransaction
 from app.services.cash import apply_transaction
 
 
@@ -171,6 +171,149 @@ def sale_detail(sale_id):
     sale = Sale.query.get_or_404(sale_id)
     return render_template("sales/detail.html", sale=sale)
 
+@sales_bp.route("/<int:sale_id>/edit", methods=["GET", "POST"])
+@login_required
+def sale_edit(sale_id):
+    """Редактирование продажи: клиент, контакт, цена."""
+    sale = Sale.query.get_or_404(sale_id)
+
+    if request.method == "POST":
+        form = _read_form(request.form)
+
+        errors = []
+        if form["price"] is None or form["price"] <= 0:
+            errors.append("Цена должна быть числом больше нуля")
+
+        if errors:
+            for e in errors:
+                flash(e, "danger")
+            return render_template("sales/edit.html", sale=sale, form_data=form)
+
+        new_price = form["price"]
+        old_price = Decimal(sale.price)
+
+        # если цена изменилась — пересоздаём транзакцию
+        if new_price != old_price:
+            account = sale.cash_account
+            if account is None:
+                flash("У продажи нет кассы — цена не может быть изменена", "danger")
+                return redirect(url_for("sales.sale_detail", sale_id=sale.id))
+
+            try:
+                # откат старой
+                old_tx = CashTransaction.query.filter_by(
+                    source_type="sale",
+                    source_id=sale.id,
+                ).first()
+
+                if old_tx:
+                    if old_tx.type == "income":
+                        account.balance = Decimal(account.balance) - Decimal(old_tx.amount)
+                    else:
+                        account.balance = Decimal(account.balance) + Decimal(old_tx.amount)
+                    tx_date = old_tx.created_at
+                    db.session.delete(old_tx)
+                else:
+                    tx_date = sale.sold_at or datetime.utcnow()
+
+                # обновляем цену
+                sale.price = new_price
+
+                # новая транзакция
+                new_tx = apply_transaction(
+                    account=account,
+                    type_="income",
+                    amount=new_price,
+                    description=f"Продажа: {sale.phone.brand} {sale.phone.model}",
+                    source_type="sale",
+                    source_id=sale.id,
+                )
+                new_tx.created_at = tx_date
+            except Exception as e:
+                db.session.rollback()
+                flash(f"Ошибка сохранения: {e}", "danger")
+                return redirect(url_for("sales.sale_detail", sale_id=sale.id))
+
+        # обновляем остальные поля
+        sale.client_name = form["client_name"]
+        sale.client_contact = form["client_contact"]
+
+        db.session.commit()
+
+        flash("Продажа обновлена", "success")
+        return redirect(url_for("sales.sale_detail", sale_id=sale.id))
+
+    # GET — заполняем форму
+    form_data = {
+        "client_name": sale.client_name or "",
+        "client_contact": sale.client_contact or "",
+        "price": sale.price,
+        "price_raw": f"{Decimal(sale.price):.0f}",
+    }
+    return render_template("sales/edit.html", sale=sale, form_data=form_data)
+
+
+@sales_bp.route("/<int:sale_id>/price", methods=["POST"])
+@login_required
+def sale_price(sale_id):
+    """Изменение цены продажи. Пересоздаёт кассовую транзакцию."""
+    sale = Sale.query.get_or_404(sale_id)
+
+    price_raw = (request.form.get("new_price") or "").strip()
+    try:
+        new_price = Decimal(price_raw)
+    except InvalidOperation:
+        flash("Цена должна быть числом", "danger")
+        return redirect(url_for("sales.sale_detail", sale_id=sale.id))
+
+    if new_price <= 0:
+        flash("Цена должна быть больше нуля", "danger")
+        return redirect(url_for("sales.sale_detail", sale_id=sale.id))
+
+    account = sale.cash_account
+    if account is None:
+        flash("У продажи нет кассы — цена не может быть изменена", "danger")
+        return redirect(url_for("sales.sale_detail", sale_id=sale.id))
+
+    try:
+        # откат старой транзакции
+        old_tx = CashTransaction.query.filter_by(
+            source_type="sale",
+            source_id=sale.id,
+        ).first()
+
+        if old_tx:
+            if old_tx.type == "income":
+                account.balance = Decimal(account.balance) - Decimal(old_tx.amount)
+            else:
+                account.balance = Decimal(account.balance) + Decimal(old_tx.amount)
+            tx_date = old_tx.created_at
+            db.session.delete(old_tx)
+        else:
+            tx_date = sale.sold_at or datetime.utcnow()
+
+        # обновляем цену
+        sale.price = new_price
+
+        # новая транзакция
+        new_tx = apply_transaction(
+            account=account,
+            type_="income",
+            amount=new_price,
+            description=f"Продажа: {sale.phone.brand} {sale.phone.model}",
+            source_type="sale",
+            source_id=sale.id,
+        )
+        new_tx.created_at = tx_date
+
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Ошибка сохранения: {e}", "danger")
+        return redirect(url_for("sales.sale_detail", sale_id=sale.id))
+
+    flash("Цена обновлена, касса пересчитана", "success")
+    return redirect(url_for("sales.sale_detail", sale_id=sale.id))
 
 @sales_bp.route("/<int:sale_id>/delete", methods=["POST"])
 @login_required

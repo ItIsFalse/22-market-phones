@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Редактировать продажу — 22 Market Phone{% endblock %}
+
+{% block content %}
+
+<div class="row justify-content-center">
+    <div class="col-lg-5">
+        <a href="{{ url_for('sales.sale_detail', sale_id=sale.id) }}"
+           class="text-decoration-none small text-muted">
+            &larr; К продаже
+        </a>
+
+        <div class="card shadow-sm mt-2">
+            <div class="card-body p-3">
+                <h1 class="h6 mb-3">Редактировать продажу</h1>
+
+                <form method="post">
+                    <div class="section-block">
+                        <h2 class="section-title">Клиент</h2>
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <label class="form-label small mb-0">Имя</label>
+                                <input type="text" name="client_name" class="form-control form-control-sm"
+                                       value="{{ form_data.get('client_name', '') }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small mb-0">Контакт</label>
+                                <input type="text" name="client_contact" class="form-control form-control-sm"
+                                       value="{{ form_data.get('client_contact', '') }}">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section-block">
+                        <h2 class="section-title">Цена (USD)</h2>
+                        <input type="text" name="price" class="form-control form-control-sm" required
+                               value="{{ form_data.get('price_raw', '') }}">
+                        <div class="text-muted small mt-1">
+                            Если цена изменится — кассовая операция будет пересоздана.
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2 mt-3">
+                        <button type="submit" class="btn btn-sm btn-primary flex-grow-1">Сохранить</button>
+                        <a href="{{ url_for('sales.sale_detail', sale_id=sale.id) }}"
+                           class="btn btn-sm btn-outline-secondary">Отмена</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

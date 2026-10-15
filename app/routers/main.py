@@ -37,7 +37,30 @@ def index():
     )
 
     phones_in_stock = Phone.query.filter_by(status="in_stock").count()
-    installments_active = Installment.query.filter_by(is_closed=False).count()
+
+    # 1. На витрине — сумма закупок всех телефонов в наличии (USD)
+    showcase_total = Decimal("0")
+    phones_on_showcase = (
+        Phone.query
+        .filter_by(status="in_stock")
+        .join(Phone.purchase)
+        .all()
+    )
+    for p in phones_on_showcase:
+        if p.purchase and p.purchase.currency == Currency.USD:
+            showcase_total += Decimal(p.purchase.price)
+
+    # 2 + 3. Рассрочки
+    active_installments = Installment.query.filter_by(is_closed=False).all()
+    installments_total = Decimal("0")     # всего с процентом
+    installments_pending = Decimal("0")   # неоплаченный остаток
+    for inst in active_installments:
+        installments_total += Decimal(inst.total_with_percent)
+        left = inst.debt_left
+        if left > 0:
+            installments_pending += left
+
+    installments_active = len(active_installments)
 
     debtors_count = 0
     for d in Debtor.query.all():
@@ -53,6 +76,9 @@ def index():
         default_cash_usd=default_cash_usd,
         default_cash_uzs=default_cash_uzs,
         phones_in_stock=phones_in_stock,
+        showcase_total=showcase_total,
+        installments_total=installments_total,
+        installments_pending=installments_pending,
         installments_active=installments_active,
         debtors_count=debtors_count,
         due_installments=due_installments,

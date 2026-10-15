@@ -79,14 +79,17 @@ def list_installments():
 @installments_bp.route("/summary/")
 @login_required
 def summary():
-    """Сводка по рассрочкам: собрано, должны, просрочено, закрыто."""
+    """Сводка по рассрочкам с поиском."""
     cur = (request.args.get("currency") or "USD").strip().upper()
     if cur not in ("USD", "UZS", "ALL"):
         cur = "USD"
 
+    q = (request.args.get("q") or "").strip()
+
     if cur == "ALL":
-        usd = _calc_summary(Currency.USD)
-        uzs = _calc_summary(Currency.UZS)
+        usd = _calc_summary(Currency.USD, q)
+        uzs = _calc_summary(Currency.UZS, q)
+
         collected_usd = usd["collected"]
         collected_uzs = uzs["collected"]
         pending_usd = usd["pending"]
@@ -95,13 +98,10 @@ def summary():
         overdue_uzs = uzs["overdue"]
         closed_count = usd["closed"] + uzs["closed"]
         active_count = usd["active"] + uzs["active"]
-        installments = (
-            Installment.query
-            .order_by(Installment.started_at.desc())
-            .all()
-        )
+        installments = _filtered_installments(q, None)
     else:
-        data = _calc_summary(cur)
+        data = _calc_summary(cur, q)
+
         collected_usd = data["collected"] if cur == Currency.USD else Decimal("0")
         collected_uzs = data["collected"] if cur == Currency.UZS else Decimal("0")
         pending_usd = data["pending"] if cur == Currency.USD else Decimal("0")
@@ -110,16 +110,13 @@ def summary():
         overdue_uzs = data["overdue"] if cur == Currency.UZS else Decimal("0")
         closed_count = data["closed"]
         active_count = data["active"]
-        installments = (
-            Installment.query
-            .filter_by(currency=cur)
-            .order_by(Installment.started_at.desc())
-            .all()
-        )
+
+        installments = _filtered_installments(q, cur)
 
     return render_template(
         "installments/summary.html",
         cur=cur,
+        q=q,
         collected_usd=collected_usd,
         collected_uzs=collected_uzs,
         pending_usd=pending_usd,
@@ -132,9 +129,33 @@ def summary():
     )
 
 
-def _calc_summary(currency):
-    """Считает 4 цифры для одной валюты."""
-    installments = Installment.query.filter_by(currency=currency).all()
+def _filtered_installments(q, currency):
+    """Возвращает отфильтрованный список рассрочек."""
+    query = (
+        Installment.query
+        .join(Phone, Installment.phone_id == Phone.id)
+        .join(Customer, Installment.customer_id == Customer.id)
+    )
+
+    if currency in Currency.CHOICES:
+        query = query.filter(Installment.currency == currency)
+
+    if q:
+        like = f"%{q}%"
+        query = query.filter(or_(
+            Phone.brand.ilike(like),
+            Phone.model.ilike(like),
+            Phone.imei.ilike(like),
+            Customer.full_name.ilike(like),
+            Customer.phone.ilike(like),
+        ))
+
+    return query.order_by(Installment.started_at.desc()).all()
+
+
+def _calc_summary(currency, q=""):
+    """Считает 4 цифры для одной валюты с учётом поиска."""
+    installments = _filtered_installments(q, currency)
 
     collected = Decimal("0")
     for inst in installments:
@@ -172,6 +193,8 @@ def _calc_summary(currency):
         "closed": closed_count,
         "active": active_count,
     }
+
+
 
 
 @installments_bp.route("/new", methods=["GET", "POST"])

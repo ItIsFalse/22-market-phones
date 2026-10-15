@@ -7,7 +7,6 @@ from app.extensions import db
 from app.models import CashAccount, Currency
 from app.services.cash import create_account, apply_transaction, delete_account
 
-
 cash_bp = Blueprint("cash", __name__, url_prefix="/cash")
 
 
@@ -70,22 +69,62 @@ def account_detail(account_id):
     """Страница счёта: баланс, история операций, форма ручной проводки."""
     from datetime import datetime, timedelta
     from decimal import Decimal
-    from app.models import Sale
+    from app.models import Sale, CashTransaction
 
     account = CashAccount.query.get_or_404(account_id)
-    transactions = account.transactions.limit(200).all()
 
-    # Наценка за последние 7 дней (по всем продажам, не только этого счёта)
-    today = datetime.utcnow().date()
-    date_from = today - timedelta(days=7)
-    date_to_end = today + timedelta(days=1)
+    # === Фильтры ===
+    tx_type = (request.args.get("tx_type") or "").strip()      # income / expense / ""
+    tx_source = (request.args.get("tx_source") or "").strip()  # manual / purchase / sale / installment / ""
 
-    sales = (
-        Sale.query
-        .filter(Sale.sold_at >= date_from)
-        .filter(Sale.sold_at < date_to_end)
+    query = CashTransaction.query.filter_by(account_id=account.id)
+
+    if tx_type in ("income", "expense"):
+        query = query.filter(CashTransaction.type == tx_type)
+
+    if tx_source == "manual":
+        query = query.filter(CashTransaction.source_type == "manual")
+
+    elif tx_source == "purchase":
+        query = query.filter(CashTransaction.source_type == "purchase")
+
+    elif tx_source == "sale":
+        query = query.filter(CashTransaction.source_type.in_(["sale", "sale_cancel"]))
+
+    elif tx_source == "installment":
+        query = query.filter(
+            CashTransaction.source_type.in_(
+                ["installment_prepayment", "installment_payment"]
+            )
+        )
+
+    transactions = (
+        query
+        .order_by(CashTransaction.created_at.desc())
+        .limit(200)
         .all()
     )
+
+    # === Наценка за выбранный период ===
+    period = (request.args.get("period") or "7d").strip()
+    today = datetime.utcnow().date()
+
+    if period == "month":
+        date_from = today.replace(day=1)
+    elif period == "all":
+        date_from = None
+    else:
+        period = "7d"
+        date_from = today - timedelta(days=7)
+
+    date_to_end = today + timedelta(days=1)
+
+    sales_q = Sale.query.filter(Sale.sold_at < date_to_end)
+    if date_from is not None:
+        sales_q = sales_q.filter(Sale.sold_at >= date_from)
+
+    sales = sales_q.all()
+
     margin_usd = Decimal("0")
     margin_uzs = Decimal("0")
     for s in sales:
@@ -106,7 +145,43 @@ def account_detail(account_id):
         transactions=transactions,
         margin_usd=margin_usd,
         margin_uzs=margin_uzs,
+        filters={
+            "tx_type": tx_type,
+            "tx_source": tx_source,
+            "period": period,
+        },
     )
+
+
+@cash_bp.route("/<int:account_id>/transaction/<int:tx_id>/delete", methods=["POST"])
+@login_required
+def delete_transaction(account_id, tx_id):
+    """Удаление ручной транзакции. Пересчитывает баланс счёта."""
+    from app.models import CashTransaction
+
+    account = CashAccount.query.get_or_404(account_id)
+    tx = CashTransaction.query.filter_by(id=tx_id, account_id=account.id).first_or_404()
+
+    # разрешаем удалять только ручные операции
+    if tx.source_type != "manual":
+        flash(
+            "Эту операцию нельзя удалить здесь. Она создана автоматически "
+            "(закупка / продажа / рассрочка). Удалите её через соответствующий раздел.",
+            "danger",
+        )
+        return redirect(url_for("cash.account_detail", account_id=account.id))
+
+    # откат баланса
+    if tx.type == "income":
+        account.balance = Decimal(account.balance) - Decimal(tx.amount)
+    else:
+        account.balance = Decimal(account.balance) + Decimal(tx.amount)
+
+    db.session.delete(tx)
+    db.session.commit()
+
+    flash("Операция удалена, баланс обновлён", "success")
+    return redirect(url_for("cash.account_detail", account_id=account.id))
 
 
 @cash_bp.route("/<int:account_id>/transaction", methods=["POST"])
@@ -150,11 +225,21 @@ def add_transaction(account_id):
 @cash_bp.route("/<int:account_id>/delete", methods=["POST"])
 @login_required
 def account_delete(account_id):
-    """Удаление счёта. Только если он не используется."""
+    """Удаление счёта. Только если он пустой и пароль верный."""
+    from flask import current_app
     from app.models import Sale, PhonePurchase, CashTransaction
 
     account = CashAccount.query.get_or_404(account_id)
 
+    # проверка пароля
+    password = (request.form.get("password") or "").strip()
+    expected = current_app.config.get("DELETE_PASSWORD", "")
+
+    if not password or password != expected:
+        flash("Неверный пароль. Счёт не удалён.", "danger")
+        return redirect(url_for("cash.account_detail", account_id=account.id))
+
+    # защита от удаления используемых счетов
     if Sale.query.filter_by(cash_account_id=account.id).first():
         flash("Нельзя удалить счёт: на нём есть продажи", "danger")
         return redirect(url_for("cash.account_detail", account_id=account.id))
@@ -164,7 +249,7 @@ def account_delete(account_id):
         return redirect(url_for("cash.account_detail", account_id=account.id))
 
     if CashTransaction.query.filter_by(account_id=account.id).first():
-        flash("Нельзя удалить счёт: на нём есть операции. Сначала удалите или перенесите их.", "danger")
+        flash("Нельзя удалить счёт: на нём есть операции.", "danger")
         return redirect(url_for("cash.account_detail", account_id=account.id))
 
     name = account.name

@@ -6,7 +6,7 @@ from flask_login import login_required
 from sqlalchemy import or_
 
 from app.extensions import db
-from app.models import PhonePurchase, Phone, CashAccount, Currency
+from app.models import PhonePurchase, Phone, CashAccount, Currency, CashTransaction
 from app.services.cash import apply_transaction
 
 
@@ -110,11 +110,14 @@ def list_purchases():
 @purchases_bp.route("/new", methods=["GET", "POST"])
 @login_required
 def new_purchase():
-    """Форма закупки телефона."""
-    accounts = CashAccount.query.order_by(CashAccount.currency, CashAccount.name).all()
-
-    default_usd_id = 1
-    default_uzs_id = 2
+    """Форма закупки телефона. Валюта всегда USD."""
+    accounts = (
+        CashAccount.query
+        .filter_by(currency=Currency.USD)
+        .order_by(CashAccount.id)
+        .all()
+    )
+    default_account_id = accounts[0].id if accounts else None
     today_str = datetime.utcnow().strftime("%Y-%m-%d")
 
     if request.method == "POST":
@@ -127,39 +130,22 @@ def new_purchase():
             return render_template(
                 "purchases/form.html",
                 accounts=accounts,
-                default_usd_id=default_usd_id,
-                default_uzs_id=default_uzs_id,
                 form_data=form,
                 today_str=today_str,
+                default_account_id=default_account_id,
             )
 
         account = CashAccount.query.get(form["cash_account_id"])
-        if account is None:
-            flash("Касса не найдена", "danger")
+        if account is None or account.currency != Currency.USD:
+            flash("Выберите USD-кассу", "danger")
             return render_template(
                 "purchases/form.html",
                 accounts=accounts,
-                default_usd_id=default_usd_id,
-                default_uzs_id=default_uzs_id,
                 form_data=form,
                 today_str=today_str,
+                default_account_id=default_account_id,
             )
 
-        if account.currency != form["currency"]:
-            flash(
-                f"Валюта кассы ({account.currency}) не совпадает с валютой закупки ({form['currency']})",
-                "danger",
-            )
-            return render_template(
-                "purchases/form.html",
-                accounts=accounts,
-                default_usd_id=default_usd_id,
-                default_uzs_id=default_uzs_id,
-                form_data=form,
-                today_str=today_str,
-            )
-
-        # --- Дата закупки ---
         purchased_at_raw = form["purchased_at_raw"]
         if purchased_at_raw:
             try:
@@ -181,7 +167,7 @@ def new_purchase():
                 imei=form["imei"] or None,
                 has_box=form["has_box"],
                 price=form["price"],
-                currency=form["currency"],
+                currency=Currency.USD,
                 note=form["note"],
                 cash_account_id=account.id,
                 created_at=purchased_at,
@@ -209,10 +195,9 @@ def new_purchase():
             return render_template(
                 "purchases/form.html",
                 accounts=accounts,
-                default_usd_id=default_usd_id,
-                default_uzs_id=default_uzs_id,
                 form_data=form,
                 today_str=today_str,
+                default_account_id=default_account_id,
             )
 
         flash("Закупка сохранена", "success")
@@ -221,10 +206,9 @@ def new_purchase():
     return render_template(
         "purchases/form.html",
         accounts=accounts,
-        default_usd_id=default_usd_id,
-        default_uzs_id=default_uzs_id,
         form_data={},
         today_str=today_str,
+        default_account_id=default_account_id,
     )
 
 
@@ -235,16 +219,192 @@ def purchase_detail(purchase_id):
     purchase = PhonePurchase.query.get_or_404(purchase_id)
     return render_template("purchases/detail.html", purchase=purchase)
 
-@purchases_bp.route("/<int:purchase_id>/note", methods=["POST"])
+
+@purchases_bp.route("/<int:purchase_id>/edit", methods=["GET", "POST"])
 @login_required
-def purchase_note(purchase_id):
-    """Редактирование только заметки закупки."""
+def purchase_edit(purchase_id):
+    """Редактирование закупки. Без цены, кассы, валюты, даты."""
     purchase = PhonePurchase.query.get_or_404(purchase_id)
-    note = (request.form.get("note") or "").strip()
-    purchase.note = note
-    db.session.commit()
-    flash("Заметка обновлена", "success")
+    phone = purchase.phone
+
+    if phone and phone.status != "in_stock":
+        flash(
+            "Телефон уже продан или в рассрочке. Сначала удалите продажу / рассрочку.",
+            "danger",
+        )
+        return redirect(url_for("purchases.purchase_detail", purchase_id=purchase.id))
+
+    if request.method == "POST":
+        form = _read_form(request.form)
+        errors = []
+
+        if not form["brand"]:
+            errors.append("Укажите бренд")
+        if not form["model"]:
+            errors.append("Укажите модель")
+
+        # проверка уникальности IMEI, исключая текущую закупку
+        if form["imei"]:
+            existing = PhonePurchase.query.filter(
+                PhonePurchase.imei == form["imei"],
+                PhonePurchase.id != purchase.id,
+            ).first()
+            if existing:
+                errors.append(f"IMEI {form['imei']} уже есть в другой закупке")
+
+        if errors:
+            for e in errors:
+                flash(e, "danger")
+            return render_template(
+                "purchases/edit.html",
+                purchase=purchase,
+                form_data=form,
+            )
+
+        purchase.client_name = form["client_name"]
+        purchase.client_contact = form["client_contact"]
+        purchase.brand = form["brand"]
+        purchase.model = form["model"]
+        purchase.color = form["color"]
+        purchase.storage = form["storage"]
+        purchase.battery = form["battery"]
+        purchase.imei = form["imei"] or None
+        purchase.has_box = form["has_box"]
+        purchase.note = form["note"]
+
+        db.session.commit()
+
+        flash("Закупка обновлена", "success")
+        return redirect(url_for("purchases.purchase_detail", purchase_id=purchase.id))
+
+    form_data = {
+        "client_name": purchase.client_name or "",
+        "client_contact": purchase.client_contact or "",
+        "brand": purchase.brand or "",
+        "model": purchase.model or "",
+        "color": purchase.color or "",
+        "storage": purchase.storage or "",
+        "battery": purchase.battery or "",
+        "imei": purchase.imei or "",
+        "has_box": purchase.has_box,
+        "note": purchase.note or "",
+    }
+    return render_template(
+        "purchases/edit.html",
+        purchase=purchase,
+        form_data=form_data,
+    )
+
+
+@purchases_bp.route("/<int:purchase_id>/price", methods=["POST"])
+@login_required
+def purchase_price(purchase_id):
+    """Изменение цены закупки. Пересоздаёт кассовую транзакцию."""
+    purchase = PhonePurchase.query.get_or_404(purchase_id)
+    phone = purchase.phone
+
+    if phone and phone.status != "in_stock":
+        flash(
+            "Телефон уже продан или в рассрочке. Сначала удалите продажу / рассрочку.",
+            "danger",
+        )
+        return redirect(url_for("purchases.purchase_detail", purchase_id=purchase.id))
+
+    price_raw = (request.form.get("new_price") or "").strip()
+    try:
+        new_price = Decimal(price_raw)
+    except InvalidOperation:
+        flash("Цена должна быть числом", "danger")
+        return redirect(url_for("purchases.purchase_detail", purchase_id=purchase.id))
+
+    if new_price <= 0:
+        flash("Цена должна быть больше нуля", "danger")
+        return redirect(url_for("purchases.purchase_detail", purchase_id=purchase.id))
+
+    account = purchase.cash_account
+    if account is None:
+        flash("У закупки нет кассы — цена не может быть изменена", "danger")
+        return redirect(url_for("purchases.purchase_detail", purchase_id=purchase.id))
+
+    try:
+        # 1. откат старой транзакции
+        old_tx = CashTransaction.query.filter_by(
+            source_type="purchase",
+            source_id=purchase.id,
+        ).first()
+
+        if old_tx:
+            if old_tx.type == "expense":
+                account.balance = Decimal(account.balance) + Decimal(old_tx.amount)
+            else:
+                account.balance = Decimal(account.balance) - Decimal(old_tx.amount)
+            tx_date = old_tx.created_at
+            db.session.delete(old_tx)
+        else:
+            tx_date = purchase.created_at or datetime.utcnow()
+
+        # 2. обновляем цену
+        purchase.price = new_price
+
+        # 3. создаём новую транзакцию
+        new_tx = apply_transaction(
+            account=account,
+            type_="expense",
+            amount=new_price,
+            description=f"Закупка: {purchase.brand} {purchase.model}",
+            source_type="purchase",
+            source_id=purchase.id,
+        )
+        new_tx.created_at = tx_date
+
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Ошибка сохранения: {e}", "danger")
+        return redirect(url_for("purchases.purchase_detail", purchase_id=purchase.id))
+
+    flash("Цена обновлена, касса пересчитана", "success")
     return redirect(url_for("purchases.purchase_detail", purchase_id=purchase.id))
+
+
+@purchases_bp.route("/<int:purchase_id>/delete", methods=["POST"])
+@login_required
+def purchase_delete(purchase_id):
+    """Удаление закупки. Только если телефон в наличии."""
+    purchase = PhonePurchase.query.get_or_404(purchase_id)
+    phone = purchase.phone
+
+    if phone and phone.status != "in_stock":
+        flash("Нельзя удалить: телефон продан или в рассрочке", "danger")
+        return redirect(url_for("purchases.purchase_detail", purchase_id=purchase.id))
+
+    account = purchase.cash_account
+
+    try:
+        old_tx = CashTransaction.query.filter_by(
+            source_type="purchase",
+            source_id=purchase.id,
+        ).first()
+
+        if old_tx and account:
+            if old_tx.type == "expense":
+                account.balance = Decimal(account.balance) + Decimal(old_tx.amount)
+            else:
+                account.balance = Decimal(account.balance) - Decimal(old_tx.amount)
+            db.session.delete(old_tx)
+
+        if phone:
+            db.session.delete(phone)
+        db.session.delete(purchase)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Ошибка удаления: {e}", "danger")
+        return redirect(url_for("purchases.purchase_detail", purchase_id=purchase.id))
+
+    flash(f"Закупка «{purchase.brand} {purchase.model}» удалена", "info")
+    return redirect(url_for("purchases.list_purchases"))
+
 
 def _read_form(form):
     """Считать данные формы в обычный dict."""
@@ -275,7 +435,7 @@ def _read_form(form):
         "has_box": val("has_box") == "on",
         "price": price,
         "price_raw": price_raw,
-        "currency": val("currency"),
+        "currency": Currency.USD,
         "note": val("note"),
         "cash_account_id": cash_account_id,
         "cash_account_id_raw": cash_account_id_raw,
@@ -293,8 +453,6 @@ def _validate(form):
         errors.append("Укажите модель")
     if form["price"] is None or form["price"] <= 0:
         errors.append("Цена должна быть числом больше нуля")
-    if form["currency"] not in Currency.CHOICES:
-        errors.append("Выберите валюту")
     if form["cash_account_id"] is None:
         errors.append("Выберите кассу")
 

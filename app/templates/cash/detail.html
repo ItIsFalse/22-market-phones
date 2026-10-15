@@ -12,9 +12,9 @@
         <h1 class="h3 mb-1 mt-2">{{ account.name }}</h1>
         <div>
             {% if account.currency == 'USD' %}
-                <span class="badge bg-success">USD</span>
+            <span class="badge bg-success">USD</span>
             {% else %}
-                <span class="badge bg-secondary">UZS</span>
+            <span class="badge bg-secondary">UZS</span>
             {% endif %}
         </div>
     </div>
@@ -22,16 +22,24 @@
         <div class="text-muted small">Текущий баланс</div>
         <div class="fs-3 fw-bold {% if account.balance < 0 %}text-danger{% endif %}">
             {% if account.currency == 'USD' %}
-                $ {{ '{:,.2f}'.format(account.balance) }}
+            $ {{ '{:,.2f}'.format(account.balance) }}
             {% else %}
-                {{ '{:,.0f}'.format(account.balance).replace(',', ' ') }} сум
+            {{ '{:,.0f}'.format(account.balance).replace(',', ' ') }} сум
             {% endif %}
         </div>
-        <div class="text-muted small mt-1">
-            Наценка за 7 дней:
+        <div class="text-muted small mt-1 d-flex justify-content-end align-items-center gap-1">
+            <span>Наценка:</span>
             <span class="text-success fw-bold">
                 $ {{ '{:,.0f}'.format(margin_usd).replace(',', ' ') }}
             </span>
+            <div class="btn-group btn-group-sm ms-2" role="group">
+                <a href="{{ url_for('cash.account_detail', account_id=account.id, period='7d', tx_type=filters.tx_type, tx_source=filters.tx_source) }}"
+                   class="btn btn-sm {% if filters.period == '7d' %}btn-success{% else %}btn-outline-success{% endif %}">7д</a>
+                <a href="{{ url_for('cash.account_detail', account_id=account.id, period='month', tx_type=filters.tx_type, tx_source=filters.tx_source) }}"
+                   class="btn btn-sm {% if filters.period == 'month' %}btn-success{% else %}btn-outline-success{% endif %}">мес</a>
+                <a href="{{ url_for('cash.account_detail', account_id=account.id, period='all', tx_type=filters.tx_type, tx_source=filters.tx_source) }}"
+                   class="btn btn-sm {% if filters.period == 'all' %}btn-success{% else %}btn-outline-success{% endif %}">всё</a>
+            </div>
         </div>
     </div>
 </div>
@@ -68,54 +76,94 @@
             </div>
         </div>
 
-        <form method="post" action="{{ url_for('cash.account_delete', account_id=account.id) }}"
-              onsubmit="return confirm('Удалить счёт вместе со всей историей?');">
-            <button type="submit" class="btn btn-outline-danger w-100">Удалить счёт</button>
-        </form>
+        <div class="text-start">
+            <button type="button"
+                    class="btn btn-sm btn-outline-danger"
+                    data-bs-toggle="modal"
+                    data-bs-target="#deleteAccountModal">
+                Удалить счёт
+            </button>
+        </div>
     </div>
 
     <div class="col-lg-8">
         <div class="card shadow-sm">
             <div class="card-body">
-                <h2 class="h6 mb-3">История операций</h2>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2 class="h6 mb-0">История операций</h2>
+                    <form method="get" class="d-flex gap-1">
+                        <input type="hidden" name="period" value="{{ filters.period }}">
+                        <select name="tx_type" class="form-select form-select-sm">
+                            <option value="">Все типы</option>
+                            <option value="income" {% if filters.tx_type == 'income' %}selected{% endif %}>Приход</option>
+                            <option value="expense" {% if filters.tx_type == 'expense' %}selected{% endif %}>Расход</option>
+                        </select>
+                        <select name="tx_source" class="form-select form-select-sm">
+                            <option value="">Все источники</option>
+                            <option value="manual" {% if filters.tx_source == 'manual' %}selected{% endif %}>Ручные</option>
+                            <option value="purchase" {% if filters.tx_source == 'purchase' %}selected{% endif %}>Закупки</option>
+                            <option value="sale" {% if filters.tx_source == 'sale' %}selected{% endif %}>Продажи</option>
+                            <option value="installment" {% if filters.tx_source == 'installment' %}selected{% endif %}>Рассрочки</option>
+                        </select>
+                        <button type="submit" class="btn btn-sm btn-primary">Фильтр</button>
+                        {% if filters.tx_type or filters.tx_source %}
+                            <a href="{{ url_for('cash.account_detail', account_id=account.id, period=filters.period) }}"
+                               class="btn btn-sm btn-outline-secondary">Сбросить</a>
+                        {% endif %}
+                    </form>
+                </div>
 
                 {% if transactions %}
                 <div class="table-responsive">
                     <table class="table table-sm align-middle mb-0">
                         <thead class="table-light">
-                            <tr>
-                                <th>Дата</th>
-                                <th>Тип</th>
-                                <th class="text-end">Сумма</th>
-                                <th>Описание</th>
-                            </tr>
+                        <tr>
+                            <th>Дата</th>
+                            <th>Тип</th>
+                            <th class="text-end">Сумма</th>
+                            <th>Описание</th>
+                            <th style="width: 80px;"></th>
+                        </tr>
                         </thead>
                         <tbody>
                         {% for tx in transactions %}
-                            <tr>
-                                <td class="text-nowrap text-muted small">
-                                    {{ tx.created_at.strftime('%d.%m.%Y %H:%M') }}
-                                </td>
-                                <td>
-                                    {% if tx.type == 'income' %}
-                                        <span class="badge bg-success-subtle text-success">Приход</span>
-                                    {% else %}
-                                        <span class="badge bg-danger-subtle text-danger">Расход</span>
-                                    {% endif %}
-                                </td>
-                                <td class="text-end fw-semibold
+                        <tr>
+                            <td class="text-nowrap text-muted small">
+                                {{ tx.created_at.strftime('%d.%m.%Y %H:%M') }}
+                            </td>
+                            <td>
+                                {% if tx.type == 'income' %}
+                                <span class="badge bg-success-subtle text-success">Приход</span>
+                                {% else %}
+                                <span class="badge bg-danger-subtle text-danger">Расход</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end fw-semibold
                                     {% if tx.type == 'income' %}text-success{% else %}text-danger{% endif %}">
-                                    {% if tx.type == 'income' %}+{% else %}&minus;{% endif %}
-                                    {% if tx.currency == 'USD' %}
-                                        $ {{ '{:,.2f}'.format(tx.amount) }}
-                                    {% else %}
-                                        {{ '{:,.0f}'.format(tx.amount).replace(',', ' ') }}
-                                    {% endif %}
-                                </td>
-                                <td class="text-muted small">
+                                {% if tx.type == 'income' %}+{% else %}&minus;{% endif %}
+                                {% if tx.currency == 'USD' %}
+                                $ {{ '{:,.2f}'.format(tx.amount) }}
+                                {% else %}
+                                {{ '{:,.0f}'.format(tx.amount).replace(',', ' ') }}
+                                {% endif %}
+                            </td>
+                                                            <td class="text-muted small">
                                     {{ tx.description or '—' }}
                                     {% if tx.source_type and tx.source_type != 'manual' %}
                                         <span class="badge bg-light text-dark">{{ tx.source_type }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    {% if tx.source_type == 'manual' %}
+                                        <form method="post"
+                                              action="{{ url_for('cash.delete_transaction', account_id=account.id, tx_id=tx.id) }}"
+                                              onsubmit="return confirm('Удалить операцию? Баланс счёта будет пересчитан.');"
+                                              class="d-inline">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger"
+                                                    title="Удалить">
+                                                ✕
+                                            </button>
+                                        </form>
                                     {% endif %}
                                 </td>
                             </tr>
@@ -124,11 +172,44 @@
                     </table>
                 </div>
                 {% else %}
-                    <p class="text-muted mb-0">Операций пока нет.</p>
+                <p class="text-muted mb-0">Операций пока нет.</p>
                 {% endif %}
             </div>
         </div>
     </div>
 </div>
 
+<div class="modal fade" id="deleteAccountModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post"
+                  action="{{ url_for('cash.account_delete', account_id=account.id) }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">Удалить счёт?</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-3">
+                        Вы удаляете счёт
+                        <strong>{{ account.name }}</strong>
+                        {% if account.transactions.count() %}
+                        с <strong>{{ account.transactions.count() }}</strong>
+                        операциями.
+                        {% endif %}
+                    </p>
+                    <p class="text-danger small mb-3">
+                        Счёт нельзя удалить, если на нём есть продажи,
+                        закупки или операции. Это проверяется автоматически.
+                    </p>
+                    <label class="form-label small mb-1">Пароль для подтверждения</label>
+                    <input type="password" name="password" class="form-control" required autofocus>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-danger">Удалить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 {% endblock %}

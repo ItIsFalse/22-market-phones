@@ -69,8 +69,7 @@ def _bootstrap_admin(app):
 
 def _bootstrap_cash_accounts(app):
     """
-    При первом запуске (пустая база) создаёт два дефолтных счёта:
-    «Сейф USD» (id=1) и «Сейф UZS» (id=2).
+    При первом запуске (пустая база) создаёт дефолтный счёт «Сейф USD» (id=1).
     Если счета уже есть — ничего не делает.
     """
     from app import models
@@ -82,10 +81,5 @@ def _bootstrap_cash_accounts(app):
     create_account(
         name="Сейф USD",
         currency=models.Currency.USD,
-        initial_balance=0,
-    )
-    create_account(
-        name="Сейф UZS",
-        currency=models.Currency.UZS,
         initial_balance=0,
     )

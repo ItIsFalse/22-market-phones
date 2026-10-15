@@ -17,12 +17,16 @@
     </div>
     <div class="text-end">
         <div class="text-muted small">Цена продажи</div>
-        <div class="fs-4 fw-bold">
-            {% if sale.currency == 'USD' %}
+        <div class="d-flex justify-content-end align-items-center gap-2">
+            <div class="fs-4 fw-bold">
                 $ {{ '{:,.0f}'.format(sale.price).replace(',', ' ') }}
-            {% else %}
-                {{ '{:,.0f}'.format(sale.price).replace(',', ' ') }} сум
-            {% endif %}
+            </div>
+            <button type="button"
+                    class="btn btn-sm btn-outline-secondary"
+                    data-bs-toggle="modal"
+                    data-bs-target="#priceModal">
+                Изменить цену
+            </button>
         </div>
     </div>
 </div>
@@ -34,7 +38,15 @@
                 <h2 class="h6 mb-3">Информация</h2>
                 <dl class="row mb-0">
                     <dt class="col-sm-4 text-muted">Клиент</dt>
-                    <dd class="col-sm-8">{{ sale.client_name or '—' }}</dd>
+                    <dd class="col-sm-8">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <span class="me-2">{{ sale.client_name or '—' }}</span>
+                            <a href="{{ url_for('sales.sale_edit', sale_id=sale.id) }}"
+                               class="btn btn-sm btn-outline-secondary">
+                                Редактировать
+                            </a>
+                        </div>
+                    </dd>
 
                     <dt class="col-sm-4 text-muted">Контакт</dt>
                     <dd class="col-sm-8">{{ sale.client_contact or '—' }}</dd>
@@ -44,11 +56,7 @@
 
                     <dt class="col-sm-4 text-muted">Закупка</dt>
                     <dd class="col-sm-8">
-                        {% if sale.phone.purchase_currency == 'USD' %}
-                            $ {{ '{:,.0f}'.format(sale.phone.purchase_price).replace(',', ' ') }}
-                        {% else %}
-                            {{ '{:,.0f}'.format(sale.phone.purchase_price).replace(',', ' ') }} сум
-                        {% endif %}
+                        $ {{ '{:,.0f}'.format(sale.phone.purchase_price).replace(',', ' ') }}
                         <a href="{{ url_for('purchases.purchase_detail', purchase_id=sale.phone.purchase.id) }}"
                            class="small ms-2">открыть</a>
                     </dd>
@@ -57,17 +65,13 @@
                     <dd class="col-sm-8">
                         {% if sale.currency == sale.phone.purchase_currency %}
                             {% set margin = sale.price - sale.phone.purchase_price %}
-                            {% if sale.currency == 'USD' %}
+                            <span class="text-success fw-bold">
                                 $ {{ '{:,.0f}'.format(margin).replace(',', ' ') }}
-                            {% else %}
-                                {{ '{:,.0f}'.format(margin).replace(',', ' ') }} сум
-                            {% endif %}
+                            </span>
                         {% else %}
                             <span class="text-muted">валюта разная</span>
                         {% endif %}
                     </dd>
-
-
                 </dl>
             </div>
         </div>
@@ -83,9 +87,38 @@
                 </p>
                 <form method="post" action="{{ url_for('sales.sale_delete', sale_id=sale.id) }}"
                       onsubmit="return confirm('Отменить продажу?');">
-                    <button type="submit" class="btn btn-outline-danger">Отменить продажу</button>
+                    <button type="submit" class="btn btn-sm btn-outline-danger">Отменить продажу</button>
                 </form>
             </div>
+        </div>
+    </div>
+</div>
+
+
+{# ===== Модалка: изменение цены ===== #}
+<div class="modal fade" id="priceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post"
+                  action="{{ url_for('sales.sale_price', sale_id=sale.id) }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">Изменить цену продажи</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small">
+                        Старая цена: <strong>$ {{ '{:,.0f}'.format(sale.price).replace(',', ' ') }}</strong>.
+                        Кассовая операция будет пересоздана: старая откатится, новая запишется.
+                    </p>
+                    <label class="form-label small mb-1">Новая цена (USD)</label>
+                    <input type="text" name="new_price" class="form-control"
+                           value="{{ '{:,.0f}'.format(sale.price).replace(',', '') }}" required>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Сохранить</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>

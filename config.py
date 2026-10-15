@@ -28,6 +28,8 @@ class Config:
 
     USD_RATE = int(os.getenv("USD_RATE", 12700))
 
+    DELETE_PASSWORD = os.getenv("DELETE_PASSWORD", "880088")
+
     ADMIN_USERNAME = os.getenv("ADMIN_USERNAME")
     ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
     ADMIN_FULL_NAME = os.getenv("ADMIN_FULL_NAME")
