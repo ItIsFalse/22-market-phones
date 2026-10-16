@@ -11,13 +11,34 @@
 <div class="d-flex justify-content-between align-items-start mb-4 mt-2">
     <div>
         <h1 class="h3 mb-1">{{ customer.full_name }}</h1>
-        <div class="text-muted">{{ customer.phone }}{% if customer.phone_extra %} · {{ customer.phone_extra }}{% endif %}</div>
+        <div class="text-muted">{{ customer.phone }}{% if customer.phone_extra %} · {{ customer.phone_extra }}{% endif
+            %}
+        </div>
         {% if customer.address %}
-            <div class="text-muted small mt-1">{{ customer.address }}</div>
+        <div class="text-muted small mt-1">{{ customer.address }}</div>
         {% endif %}
     </div>
-    <a href="{{ url_for('customers.edit_customer', customer_id=customer.id) }}"
-       class="btn btn-outline-secondary">Редактировать</a>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('customers.edit_customer', customer_id=customer.id) }}"
+           class="btn btn-sm btn-outline-secondary">
+            Редактировать
+        </a>
+        {% if customer.installments.count() == 0 %}
+        <button type="button"
+                class="btn btn-sm btn-outline-danger"
+                data-bs-toggle="modal"
+                data-bs-target="#deleteCustomerModal">
+            Удалить
+        </button>
+        {% else %}
+        <button type="button"
+                class="btn btn-sm btn-outline-danger"
+                data-bs-toggle="modal"
+                data-bs-target="#hasInstallmentsModal">
+            Удалить
+        </button>
+        {% endif %}
+    </div>
 </div>
 
 <div class="row g-4">
@@ -41,7 +62,7 @@
                     <dt class="col-sm-5 text-muted">Координаты</dt>
                     <dd class="col-sm-7">
                         {% if customer.latitude and customer.longitude %}
-                            {{ customer.latitude }}, {{ customer.longitude }}
+                        {{ customer.latitude }}, {{ customer.longitude }}
                         {% else %}—{% endif %}
                     </dd>
 
@@ -63,33 +84,90 @@
                 {% if installments %}
                 <ul class="list-group list-group-flush">
                     {% for inst in installments %}
-                        <li class="list-group-item px-0">
-                            <a href="{{ url_for('installments.installment_detail', installment_id=inst.id) }}"
-                               class="text-decoration-none fw-semibold">
-                                {{ inst.phone.brand }} {{ inst.phone.model }}
-                            </a>
-                            <div class="text-muted small">
-                                {{ inst.months }} мес ·
-                                {% if inst.currency == 'USD' %}
-                                    $ {{ '{:,.0f}'.format(inst.total_with_percent).replace(',', ' ') }}
-                                {% else %}
-                                    {{ '{:,.0f}'.format(inst.total_with_percent).replace(',', ' ') }} сум
-                                {% endif %}
-                                {% if inst.is_closed %}
-                                    <span class="badge bg-secondary ms-1">Закрыта</span>
-                                {% else %}
-                                    <span class="badge bg-info text-dark ms-1">Активна</span>
-                                {% endif %}
-                            </div>
-                        </li>
+                    <li class="list-group-item px-0">
+                        <a href="{{ url_for('installments.installment_detail', installment_id=inst.id) }}"
+                           class="text-decoration-none fw-semibold">
+                            {{ inst.phone.brand }} {{ inst.phone.model }}
+                        </a>
+                        <div class="text-muted small">
+                            {{ inst.months }} мес ·
+                            {% if inst.currency == 'USD' %}
+                            $ {{ '{:,.0f}'.format(inst.total_with_percent).replace(',', ' ') }}
+                            {% else %}
+                            {{ '{:,.0f}'.format(inst.total_with_percent).replace(',', ' ') }} сум
+                            {% endif %}
+                            {% if inst.is_closed %}
+                            <span class="badge bg-secondary ms-1">Закрыта</span>
+                            {% else %}
+                            <span class="badge bg-info text-dark ms-1">Активна</span>
+                            {% endif %}
+                        </div>
+                    </li>
                     {% endfor %}
                 </ul>
                 {% else %}
-                    <p class="text-muted mb-0">Рассрочек нет.</p>
+                <p class="text-muted mb-0">Рассрочек нет.</p>
                 {% endif %}
             </div>
         </div>
     </div>
 </div>
 
+
+{# ===== Модалка: удаление покупателя ===== #}
+{% if customer.installments.count() == 0 %}
+<div class="modal fade" id="deleteCustomerModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post"
+                  action="{{ url_for('customers.delete_customer', customer_id=customer.id) }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">Удалить покупателя?</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-2">
+                        Покупатель <strong>{{ customer.full_name }}</strong> будет удалён.
+                    </p>
+                    <p class="text-muted small mb-0">
+                        Действие необратимо. Все данные покупателя будут потеряны.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-danger">Удалить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+
+{# ===== Модалка: у покупателя есть рассрочки ===== #}
+<div class="modal fade" id="hasInstallmentsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Нельзя удалить</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2">
+                    У покупателя <strong>{{ customer.full_name }}</strong>
+                    есть <strong>{{ customer.installments.count() }}</strong>
+                    {{ 'рассрочка' if customer.installments.count() == 1 else 'рассрочки' }}.
+                </p>
+                <p class="text-muted small mb-0">
+                    Сначала удалите рассрочки, затем можно удалить покупателя.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Понятно</button>
+                <a href="{{ url_for('installments.list_installments') }}?q={{ customer.full_name }}"
+                   class="btn btn-primary">Открыть рассрочки</a>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

@@ -29,18 +29,21 @@ def list_installments():
     currency = (request.args.get("currency") or "").strip()
     sort = (request.args.get("sort") or "date_desc").strip()
 
+    from app.models import PhonePurchase
+
     query = (
         Installment.query
         .join(Phone, Installment.phone_id == Phone.id)
+        .join(PhonePurchase, Phone.purchase_id == PhonePurchase.id)
         .join(Customer, Installment.customer_id == Customer.id)
     )
 
     if q:
         like = f"%{q}%"
         query = query.filter(or_(
-            Phone.brand.ilike(like),
-            Phone.model.ilike(like),
-            Phone.imei.ilike(like),
+            PhonePurchase.brand.ilike(like),
+            PhonePurchase.model.ilike(like),
+            PhonePurchase.imei.ilike(like),
             Customer.full_name.ilike(like),
             Customer.phone.ilike(like),
         ))
@@ -131,9 +134,12 @@ def summary():
 
 def _filtered_installments(q, currency):
     """Возвращает отфильтрованный список рассрочек."""
+    from app.models import PhonePurchase
+
     query = (
         Installment.query
         .join(Phone, Installment.phone_id == Phone.id)
+        .join(PhonePurchase, Phone.purchase_id == PhonePurchase.id)
         .join(Customer, Installment.customer_id == Customer.id)
     )
 
@@ -143,9 +149,9 @@ def _filtered_installments(q, currency):
     if q:
         like = f"%{q}%"
         query = query.filter(or_(
-            Phone.brand.ilike(like),
-            Phone.model.ilike(like),
-            Phone.imei.ilike(like),
+            PhonePurchase.brand.ilike(like),
+            PhonePurchase.model.ilike(like),
+            PhonePurchase.imei.ilike(like),
             Customer.full_name.ilike(like),
             Customer.phone.ilike(like),
         ))
@@ -576,6 +582,7 @@ def contract_docx(installment_id):
         "{last_payment_date}": last_payment_date.strftime('%d.%m.%Y') if last_payment_date else "",
         "{shop_phone}": current_app.config.get("SHOP_PHONE", ""),
         "{admin_full_name}": current_app.config.get("ADMIN_FULL_NAME", ""),
+        "{has_box}": "bor" if phone.purchase.has_box else "yo‘q",
     }
 
     template_path = os.path.join(

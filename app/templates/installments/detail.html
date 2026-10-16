@@ -145,11 +145,17 @@
             </div>
         </div>
 
-        <a href="{{ url_for('installments.contract', installment_id=installment.id) }}"
-           target="_blank"
-           class="btn btn-sm btn-outline-primary w-100">
-            📄 Посмотреть договор
-        </a>
+        <div class="d-grid gap-2">
+            <a href="{{ url_for('installments.contract', installment_id=installment.id) }}"
+               target="_blank"
+               class="btn btn-sm btn-outline-primary">
+                📄 Посмотреть договор
+            </a>
+            <a href="{{ url_for('installments.contract_docx', installment_id=installment.id) }}"
+               class="btn btn-sm btn-outline-success">
+                ⬇️ Скачать .docx
+            </a>
+        </div>
     </div>
 
     {# ===== Правая колонка: график + история ===== #}

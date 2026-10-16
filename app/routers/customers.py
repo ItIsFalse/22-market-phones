@@ -182,6 +182,26 @@ def edit_customer(customer_id):
         next_url="",
     )
 
+@customers_bp.route("/<int:customer_id>/delete", methods=["POST"])
+@login_required
+def delete_customer(customer_id):
+    """Удалить покупателя. Только если у него нет рассрочек."""
+    customer = Customer.query.get_or_404(customer_id)
+
+    # проверка — есть ли рассрочки
+    if customer.installments.count() > 0:
+        flash(
+            "Нельзя удалить: у покупателя есть рассрочки. Сначала удалите их.",
+            "danger",
+        )
+        return redirect(url_for("customers.customer_detail", customer_id=customer.id))
+
+    name = customer.full_name
+    db.session.delete(customer)
+    db.session.commit()
+
+    flash(f"Покупатель «{name}» удалён", "info")
+    return redirect(url_for("customers.list_customers"))
 
 def _read_form(form):
     """Считать данные формы."""
