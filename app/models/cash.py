@@ -39,6 +39,7 @@ class CashTransaction(db.Model):
     description = db.Column(db.String(255))
     source_type = db.Column(db.String(32))
     source_id = db.Column(db.Integer)
+    payment_id = db.Column(db.Integer, index=True)  # ← новая строка
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
     account = db.relationship("CashAccount", back_populates="transactions")

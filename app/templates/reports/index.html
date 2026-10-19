@@ -30,23 +30,23 @@
 </form>
 
 <div class="row g-3 mb-3">
+    {# 1. Рассрочки #}
     <div class="col-md-6 col-lg-3">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-body">
-                <div class="text-muted small">Потрачено на закупки</div>
-                <div class="fs-4 fw-bold text-danger">
-                    $ {{ '{:,.0f}'.format(purchases_usd).replace(',', ' ') }}
+                <div class="text-muted small">В рассрочке (всего)</div>
+                <div class="fs-4 fw-bold text-primary">
+                    $ {{ '{:,.0f}'.format(total_installments).replace(',', ' ') }}
                 </div>
-                {% if purchases_uzs %}
-                    <div class="fs-6 text-danger">
-                        {{ '{:,.0f}'.format(purchases_uzs).replace(',', ' ') }} сум
-                    </div>
-                {% endif %}
-                <div class="text-muted small">Закупок: {{ purchases_count }}</div>
+                <div class="text-muted small">
+                    Получено: <span class="text-success">$ {{ '{:,.0f}'.format(paid_installments).replace(',', ' ') }}</span><br>
+                    Осталось: <span class="text-danger">$ {{ '{:,.0f}'.format(pending_installments).replace(',', ' ') }}</span>
+                </div>
             </div>
         </div>
     </div>
 
+    {# 2. Продано #}
     <div class="col-md-6 col-lg-3">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-body">
@@ -64,6 +64,7 @@
         </div>
     </div>
 
+    {# 3. Наценка #}
     <div class="col-md-6 col-lg-3">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-body">
@@ -81,14 +82,20 @@
         </div>
     </div>
 
+    {# 4. Закупки #}
     <div class="col-md-6 col-lg-3">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-body">
-                <div class="text-muted small">Прибыль vs Закупки</div>
-                <div class="fs-4 fw-bold {% if margin_usd - purchases_usd >= 0 %}text-success{% else %}text-danger{% endif %}">
-                    $ {{ '{:,.0f}'.format(margin_usd).replace(',', ' ') }}
+                <div class="text-muted small">Потрачено на закупки</div>
+                <div class="fs-4 fw-bold text-danger">
+                    $ {{ '{:,.0f}'.format(purchases_usd).replace(',', ' ') }}
                 </div>
-                <div class="text-muted small">Наценка минус потрачено</div>
+                {% if purchases_uzs %}
+                    <div class="fs-6 text-danger">
+                        {{ '{:,.0f}'.format(purchases_uzs).replace(',', ' ') }} сум
+                    </div>
+                {% endif %}
+                <div class="text-muted small">Закупок: {{ purchases_count }}</div>
             </div>
         </div>
     </div>

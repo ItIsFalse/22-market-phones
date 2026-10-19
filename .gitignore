@@ -1,11 +1,12 @@
 .venv/
 venv/
-env/
 .env
+env/
 __pycache__/
 *.py[cod]
 *.db
 *.sqlite3
+*.log
 .vscode/
 .idea/
 .DS_Store

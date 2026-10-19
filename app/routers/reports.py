@@ -3,10 +3,8 @@ from decimal import Decimal
 
 from flask import Blueprint, render_template, request
 from flask_login import login_required
-from sqlalchemy import or_
 
-from app.models import Sale, PhonePurchase, Phone, Currency
-
+from app.models import Sale, PhonePurchase, Currency, Installment
 
 reports_bp = Blueprint("reports", __name__, url_prefix="/reports")
 
@@ -14,14 +12,12 @@ reports_bp = Blueprint("reports", __name__, url_prefix="/reports")
 @reports_bp.route("/")
 @login_required
 def index():
-    """Отчёт: закупки, продажи, наценка за период."""
+    """Отчёт: закупки, продажи, наценка, рассрочки за период."""
     today = datetime.utcnow().date()
 
-    # период по умолчанию — последние 7 дней
     default_from = today - timedelta(days=7)
     default_to = today
 
-    # читаем параметры из URL
     date_from_raw = (request.args.get("from") or "").strip()
     date_to_raw = (request.args.get("to") or "").strip()
 
@@ -35,7 +31,6 @@ def index():
     except ValueError:
         date_to = default_to
 
-    # добавляем 1 день, чтобы включить конец периода
     date_to_end = date_to + timedelta(days=1)
 
     # ===== Закупки =====
@@ -80,12 +75,29 @@ def index():
         if purchase is None:
             continue
         if s.currency != purchase.currency:
-            continue  # разные валюты — пропускаем
+            continue
         margin = Decimal(s.price) - Decimal(purchase.price)
         if s.currency == Currency.USD:
             margin_usd += margin
         elif s.currency == Currency.UZS:
             margin_uzs += margin
+
+    # ===== Рассрочки за период =====
+    installments_in_period = (
+        Installment.query
+        .filter(Installment.started_at >= date_from)
+        .filter(Installment.started_at < date_to_end)
+        .all()
+    )
+
+    total_installments = Decimal("0")
+    paid_installments = Decimal("0")
+    pending_installments = Decimal("0")
+
+    for inst in installments_in_period:
+        total_installments += inst.total_with_percent
+        paid_installments += inst.paid_total
+        pending_installments += inst.debt_left
 
     return render_template(
         "reports/index.html",
@@ -99,4 +111,7 @@ def index():
         sales_count=sales_count,
         margin_usd=margin_usd,
         margin_uzs=margin_uzs,
+        total_installments=total_installments,
+        paid_installments=paid_installments,
+        pending_installments=pending_installments,
     )
