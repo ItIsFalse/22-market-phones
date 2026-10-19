@@ -225,7 +225,8 @@ def new_installment():
         }
         for p in phones
     ]
-    customers = Customer.query.order_by(Customer.full_name).all()
+    # Сортируем по дате регистрации (сначала новые)
+    customers = Customer.query.order_by(Customer.registered_at.desc()).all()
     customers_json = [
         {"id": c.id, "full_name": c.full_name, "phone": c.phone or ""}
         for c in customers
@@ -511,7 +512,7 @@ def add_payment(installment_id):
 @installments_bp.route("/<int:installment_id>/payment/<int:payment_id>/edit", methods=["POST"])
 @login_required
 def edit_payment(installment_id, payment_id):
-    """Редактирование суммы и комментария платежа."""
+    """Редактирование суммы и комментария платежа с защитой от переплаты."""
     from app.models import CashTransaction
 
     installment = Installment.query.get_or_404(installment_id)
@@ -537,21 +538,31 @@ def edit_payment(installment_id, payment_id):
         flash("У платежа нет привязанной кассы", "danger")
         return redirect(url_for("installments.installment_detail", installment_id=installment.id))
 
+    # === ПРОВЕРКА НА ПЕРЕПЛАТУ ===
+    # 1. Вычисляем, какой будет долг, если мы применим новую сумму
+    # Текущий paid_total включает старую сумму платежа
+    temp_paid_total = installment.paid_total - old_amount + new_amount
+    # Итоговая сумма к оплате с процентами (без учета предоплаты, так как она уже в paid_total)
+    temp_debt_left = installment.total_with_percent - (temp_paid_total - Decimal(installment.prepayment))
+
+    if temp_debt_left < 0:
+        flash(f"Нельзя внести больше остатка. Максимальная сумма к оплате: ${installment.debt_left + old_amount}", "danger")
+        return redirect(url_for("installments.installment_detail", installment_id=installment.id))
+
+    # Если это предоплата — обновляем и ее
+    is_prepayment = (payment.comment == "Предоплата")
+
     try:
         # 1. Находим транзакцию в кассе по payment.id
         tx = CashTransaction.query.filter_by(payment_id=payment.id).first()
 
         if tx:
-            # 1.1. Обновляем сумму транзакции
             diff = new_amount - old_amount
             tx.amount = new_amount
-            # 1.2. Пересчитываем баланс счёта на разницу
             account.balance = Decimal(account.balance) + diff
         else:
-            # Если транзакции нет (например, создана до миграции) — пересчитываем вручную
             account.balance = Decimal(account.balance) - old_amount
             account.balance = Decimal(account.balance) + new_amount
-
             apply_transaction(
                 account=account,
                 type_="income",
@@ -566,13 +577,15 @@ def edit_payment(installment_id, payment_id):
         payment.amount = new_amount
         payment.comment = comment
 
-        # 3. Пересчитываем закрытие рассрочки
-        # Важно: debt_left считается на лету из payment.amount, поэтому
-        # после изменения payment.amount он уже актуален.
-        if installment.debt_left > 0:
-            installment.is_closed = False
-        elif installment.debt_left <= 0:
+        # 3. Если это была предоплата, обновляем поле в самой рассрочке
+        if is_prepayment:
+            installment.prepayment = new_amount
+
+        # 4. Пересчитываем закрытие (temp_debt_left уже проверен выше)
+        if temp_debt_left <= 0:
             installment.is_closed = True
+        else:
+            installment.is_closed = False
 
         db.session.commit()
         flash("Платёж обновлён, касса пересчитана", "success")

@@ -330,11 +330,19 @@ function initCustomerAutocomplete(root) {
         const q = searchInput.value;
         if (idInput) idInput.value = "";
         if (!q.trim()) {
-            closeList();
+            // Если поле пустое — показываем 10 последних клиентов
+            render(customers.slice(0, 10));
             return;
         }
         const items = filterCustomers(q);
         render(items);
+    });
+
+        // При клике на пустое поле показываем недавних
+    searchInput.addEventListener("focus", () => {
+        if (!searchInput.value.trim() && !idInput.value) {
+            render(customers.slice(0, 10));
+        }
     });
 
     searchInput.addEventListener("keydown", (e) => {
