@@ -34,7 +34,7 @@ def create_account(name, currency, initial_balance=0):
     return account
 
 
-def apply_transaction(account, type_, amount, description="", source_type="manual", source_id=None):
+def apply_transaction(account, type_, amount, description="", source_type="manual", source_id=None, payment_id=None):
     """
     Провести операцию по счёту.
     type_ — 'income' или 'expense'.
@@ -60,6 +60,7 @@ def apply_transaction(account, type_, amount, description="", source_type="manua
         description=description.strip() if description else "",
         source_type=source_type,
         source_id=source_id,
+        payment_id=payment_id,
     )
     db.session.add(tx)
     db.session.flush()

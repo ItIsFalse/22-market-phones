@@ -298,14 +298,6 @@ def new_installment():
             db.session.flush()
 
             if installment.prepayment > 0:
-                apply_transaction(
-                    account=account,
-                    type_="income",
-                    amount=installment.prepayment,
-                    description=f"Предоплата по рассрочке #{installment.id}",
-                    source_type="installment_prepayment",
-                    source_id=installment.id,
-                )
                 payment = InstallmentPayment(
                     installment=installment,
                     amount=installment.prepayment,
@@ -314,6 +306,17 @@ def new_installment():
                     comment="Предоплата",
                 )
                 db.session.add(payment)
+                db.session.flush()  # ← чтобы был payment.id
+
+                apply_transaction(
+                    account=account,
+                    type_="income",
+                    amount=installment.prepayment,
+                    description=f"Предоплата по рассрочке #{installment.id}",
+                    source_type="installment_prepayment",
+                    source_id=installment.id,
+                    payment_id=payment.id,  # ← привязка
+                )
 
             phone.status = "installment"
             db.session.commit()
@@ -471,15 +474,7 @@ def add_payment(installment_id):
         return redirect(url_for("installments.installment_detail", installment_id=installment.id))
 
     try:
-        apply_transaction(
-            account=account,
-            type_="income",
-            amount=amount,
-            description=f"Платёж по рассрочке #{installment.id}",
-            source_type="installment_payment",
-            source_id=installment.id,
-        )
-
+        # 1. Сначала создаём платёж, чтобы был payment.id
         payment = InstallmentPayment(
             installment=installment,
             amount=amount,
@@ -489,6 +484,17 @@ def add_payment(installment_id):
         )
         db.session.add(payment)
         db.session.flush()
+
+        # 2. Потом создаём транзакцию с привязкой
+        apply_transaction(
+            account=account,
+            type_="income",
+            amount=amount,
+            description=f"Платёж по рассрочке #{installment.id}",
+            source_type="installment_payment",
+            source_id=installment.id,
+            payment_id=payment.id,
+        )
 
         if installment.debt_left <= 0:
             installment.is_closed = True
@@ -500,6 +506,78 @@ def add_payment(installment_id):
         return redirect(url_for("installments.installment_detail", installment_id=installment.id))
 
     flash("Платёж внесён", "success")
+    return redirect(url_for("installments.installment_detail", installment_id=installment.id))
+
+@installments_bp.route("/<int:installment_id>/payment/<int:payment_id>/edit", methods=["POST"])
+@login_required
+def edit_payment(installment_id, payment_id):
+    """Редактирование суммы и комментария платежа."""
+    from app.models import CashTransaction
+
+    installment = Installment.query.get_or_404(installment_id)
+    payment = InstallmentPayment.query.filter_by(id=payment_id, installment_id=installment.id).first_or_404()
+
+    amount_raw = (request.form.get("amount") or "").strip()
+    comment = (request.form.get("comment") or "").strip()
+
+    try:
+        new_amount = Decimal(amount_raw)
+    except InvalidOperation:
+        flash("Сумма должна быть числом", "danger")
+        return redirect(url_for("installments.installment_detail", installment_id=installment.id))
+
+    if new_amount <= 0:
+        flash("Сумма должна быть больше нуля", "danger")
+        return redirect(url_for("installments.installment_detail", installment_id=installment.id))
+
+    old_amount = Decimal(payment.amount)
+    account = payment.cash_account
+
+    if account is None:
+        flash("У платежа нет привязанной кассы", "danger")
+        return redirect(url_for("installments.installment_detail", installment_id=installment.id))
+
+    try:
+        # 1. Находим транзакцию в кассе по payment.id
+        tx = CashTransaction.query.filter_by(payment_id=payment.id).first()
+
+        if tx:
+            # 1.1. Обновляем сумму транзакции
+            diff = new_amount - old_amount
+            tx.amount = new_amount
+            # 1.2. Пересчитываем баланс счёта на разницу
+            account.balance = Decimal(account.balance) + diff
+        else:
+            # Если транзакции нет (старые данные) — создаём заново
+            account.balance = Decimal(account.balance) - old_amount
+            account.balance = Decimal(account.balance) + new_amount
+
+            apply_transaction(
+                account=account,
+                type_="income",
+                amount=new_amount,
+                description=f"Платёж по рассрочке #{installment.id}",
+                source_type="installment_payment",
+                source_id=installment.id,
+                payment_id=payment.id,
+            )
+
+        # 2. Обновляем сам платёж
+        payment.amount = new_amount
+        payment.comment = comment
+
+        # 3. Пересчитываем закрытие рассрочки
+        if installment.debt_left > 0:
+            installment.is_closed = False
+        elif installment.debt_left <= 0:
+            installment.is_closed = True
+
+        db.session.commit()
+        flash("Платёж обновлён", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Ошибка сохранения: {e}", "danger")
+
     return redirect(url_for("installments.installment_detail", installment_id=installment.id))
 
 @installments_bp.route("/<int:installment_id>/contract")
