@@ -174,7 +174,9 @@ def sale_detail(sale_id):
 @sales_bp.route("/<int:sale_id>/edit", methods=["GET", "POST"])
 @login_required
 def sale_edit(sale_id):
-    """Редактирование продажи: клиент, контакт, цена."""
+    """Редактирование продажи: клиент, контакт, цена (с пересчетом кассы)."""
+    from app.models import CashTransaction
+
     sale = Sale.query.get_or_404(sale_id)
 
     if request.method == "POST":
@@ -192,7 +194,7 @@ def sale_edit(sale_id):
         new_price = form["price"]
         old_price = Decimal(sale.price)
 
-        # если цена изменилась — пересоздаём транзакцию
+        # Если цена изменилась — пересчитываем кассу
         if new_price != old_price:
             account = sale.cash_account
             if account is None:
@@ -200,48 +202,49 @@ def sale_edit(sale_id):
                 return redirect(url_for("sales.sale_detail", sale_id=sale.id))
 
             try:
-                # откат старой
-                old_tx = CashTransaction.query.filter_by(
+                # Находим транзакцию по продаже
+                tx = CashTransaction.query.filter_by(
                     source_type="sale",
                     source_id=sale.id,
                 ).first()
 
-                if old_tx:
-                    if old_tx.type == "income":
-                        account.balance = Decimal(account.balance) - Decimal(old_tx.amount)
-                    else:
-                        account.balance = Decimal(account.balance) + Decimal(old_tx.amount)
-                    tx_date = old_tx.created_at
-                    db.session.delete(old_tx)
+                if tx:
+                    # Обновляем сумму транзакции и баланс кассы на разницу
+                    diff = new_price - old_price
+                    tx.amount = new_price
+                    account.balance = Decimal(account.balance) + diff
                 else:
-                    tx_date = sale.sold_at or datetime.utcnow()
+                    # Если транзакции нет (старые данные) — создаем
+                    account.balance = Decimal(account.balance) - old_price
+                    account.balance = Decimal(account.balance) + new_price
+                    apply_transaction(
+                        account=account,
+                        type_="income",
+                        amount=new_price,
+                        description=f"Продажа: {sale.phone.brand} {sale.phone.model}",
+                        source_type="sale",
+                        source_id=sale.id,
+                    )
 
-                # обновляем цену
+                # Обновляем цену и данные клиента в самой продаже
                 sale.price = new_price
+                sale.client_name = form["client_name"]
+                sale.client_contact = form["client_contact"]
 
-                # новая транзакция
-                new_tx = apply_transaction(
-                    account=account,
-                    type_="income",
-                    amount=new_price,
-                    description=f"Продажа: {sale.phone.brand} {sale.phone.model}",
-                    source_type="sale",
-                    source_id=sale.id,
-                )
-                new_tx.created_at = tx_date
+                db.session.commit()
+                flash("Продажа обновлена, касса пересчитана", "success")
+                return redirect(url_for("sales.sale_detail", sale_id=sale.id))
             except Exception as e:
                 db.session.rollback()
                 flash(f"Ошибка сохранения: {e}", "danger")
                 return redirect(url_for("sales.sale_detail", sale_id=sale.id))
-
-        # обновляем остальные поля
-        sale.client_name = form["client_name"]
-        sale.client_contact = form["client_contact"]
-
-        db.session.commit()
-
-        flash("Продажа обновлена", "success")
-        return redirect(url_for("sales.sale_detail", sale_id=sale.id))
+        else:
+            # Если цена не менялась, просто обновляем текстовые поля
+            sale.client_name = form["client_name"]
+            sale.client_contact = form["client_contact"]
+            db.session.commit()
+            flash("Данные обновлены", "success")
+            return redirect(url_for("sales.sale_detail", sale_id=sale.id))
 
     # GET — заполняем форму
     form_data = {

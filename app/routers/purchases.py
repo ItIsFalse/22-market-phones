@@ -299,7 +299,9 @@ def purchase_edit(purchase_id):
 @purchases_bp.route("/<int:purchase_id>/price", methods=["POST"])
 @login_required
 def purchase_price(purchase_id):
-    """Изменение цены закупки. Пересоздаёт кассовую транзакцию."""
+    """Изменение цены закупки. Пересчитывает транзакцию в кассе."""
+    from app.models import CashTransaction
+
     purchase = PhonePurchase.query.get_or_404(purchase_id)
     phone = purchase.phone
 
@@ -326,44 +328,49 @@ def purchase_price(purchase_id):
         flash("У закупки нет кассы — цена не может быть изменена", "danger")
         return redirect(url_for("purchases.purchase_detail", purchase_id=purchase.id))
 
+    old_price = Decimal(purchase.price)
+
     try:
-        # 1. откат старой транзакции
-        old_tx = CashTransaction.query.filter_by(
+        # Находим транзакцию
+        tx = CashTransaction.query.filter_by(
             source_type="purchase",
             source_id=purchase.id,
         ).first()
 
-        if old_tx:
-            if old_tx.type == "expense":
-                account.balance = Decimal(account.balance) + Decimal(old_tx.amount)
-            else:
-                account.balance = Decimal(account.balance) - Decimal(old_tx.amount)
-            tx_date = old_tx.created_at
-            db.session.delete(old_tx)
+        if tx:
+            # Меняем сумму транзакции и баланс на разницу
+            diff = new_price - old_price
+            tx.amount = new_price
+
+            # Если это расход, то при увеличении цены баланс должен уменьшиться.
+            # Но так как diff = new - old, то при увеличении diff положительный.
+            # Следовательно, из кассы нужно вычесть diff (т.к. это expense).
+            # А если diff отрицательный (цена уменьшилась), то баланс вырастет.
+            account.balance = Decimal(account.balance) - diff
+
+            # Обновляем описание (на случай, если поменялось название телефона)
+            tx.description = f"Закупка: {purchase.brand} {purchase.model}"
         else:
-            tx_date = purchase.created_at or datetime.utcnow()
+            # Если транзакции нет (старые данные)
+            account.balance = Decimal(account.balance) + old_price
+            account.balance = Decimal(account.balance) - new_price
+            apply_transaction(
+                account=account,
+                type_="expense",
+                amount=new_price,
+                description=f"Закупка: {purchase.brand} {purchase.model}",
+                source_type="purchase",
+                source_id=purchase.id,
+            )
 
-        # 2. обновляем цену
         purchase.price = new_price
-
-        # 3. создаём новую транзакцию
-        new_tx = apply_transaction(
-            account=account,
-            type_="expense",
-            amount=new_price,
-            description=f"Закупка: {purchase.brand} {purchase.model}",
-            source_type="purchase",
-            source_id=purchase.id,
-        )
-        new_tx.created_at = tx_date
-
         db.session.commit()
+
+        flash("Цена обновлена, касса пересчитана", "success")
     except Exception as e:
         db.session.rollback()
         flash(f"Ошибка сохранения: {e}", "danger")
-        return redirect(url_for("purchases.purchase_detail", purchase_id=purchase.id))
 
-    flash("Цена обновлена, касса пересчитана", "success")
     return redirect(url_for("purchases.purchase_detail", purchase_id=purchase.id))
 
 

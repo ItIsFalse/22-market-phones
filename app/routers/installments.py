@@ -548,7 +548,7 @@ def edit_payment(installment_id, payment_id):
             # 1.2. Пересчитываем баланс счёта на разницу
             account.balance = Decimal(account.balance) + diff
         else:
-            # Если транзакции нет (старые данные) — создаём заново
+            # Если транзакции нет (например, создана до миграции) — пересчитываем вручную
             account.balance = Decimal(account.balance) - old_amount
             account.balance = Decimal(account.balance) + new_amount
 
@@ -567,13 +567,15 @@ def edit_payment(installment_id, payment_id):
         payment.comment = comment
 
         # 3. Пересчитываем закрытие рассрочки
+        # Важно: debt_left считается на лету из payment.amount, поэтому
+        # после изменения payment.amount он уже актуален.
         if installment.debt_left > 0:
             installment.is_closed = False
         elif installment.debt_left <= 0:
             installment.is_closed = True
 
         db.session.commit()
-        flash("Платёж обновлён", "success")
+        flash("Платёж обновлён, касса пересчитана", "success")
     except Exception as e:
         db.session.rollback()
         flash(f"Ошибка сохранения: {e}", "danger")
