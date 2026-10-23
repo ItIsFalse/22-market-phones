@@ -379,36 +379,49 @@ def installment_detail(installment_id):
 
     for row in schedule:
         due_date = row["due_date"].date()
-        amount = row["amount"]
+        amount = Decimal(row["amount"])
 
-        # сколько нужно было бы оплатить к этому платежу включительно
+        # Сколько из общей оплаты приходится на этот месяц
+        paid_for_this = max(
+            Decimal("0"),
+            min(amount, paid - paid_so_far)
+        )
+        remaining_for_this = max(
+            Decimal("0"),
+            amount - paid_for_this
+        )
+
         cumulative_target = paid_so_far + amount
-        is_paid = paid >= cumulative_target
-        is_partial = (not is_paid) and (paid > paid_so_far)
-        is_overdue = (not is_paid) and (due_date < today)
+        is_paid = remaining_for_this == 0
+        is_partial = paid_for_this > 0 and not is_paid
+        is_overdue = not is_paid and due_date < today
 
         if is_paid:
             status = "paid"
             icon = "✅"
-        elif is_overdue:
-            status = "overdue"
-            icon = "🔴"
         elif is_partial:
             status = "partial"
             icon = "🟡"
+        elif is_overdue:
+            status = "overdue"
+            icon = "🔴"
         else:
             status = "future"
             icon = "⚪"
-            if next_payment is None:
-                next_payment = row
+
+        if not is_paid and next_payment is None:
+            next_payment = row
 
         schedule_with_status.append({
             "index": row["index"],
             "due_date": row["due_date"],
             "amount": amount,
+            "paid_amount": paid_for_this,
+            "remaining": remaining_for_this,
             "status": status,
             "icon": icon,
         })
+
         paid_so_far = cumulative_target
 
     return render_template(
@@ -678,6 +691,8 @@ def contract_docx(installment_id):
         "{shop_phone}": current_app.config.get("SHOP_PHONE", ""),
         "{admin_full_name}": current_app.config.get("ADMIN_FULL_NAME", ""),
         "{has_box}": "bor" if phone.purchase.has_box else "yo‘q",
+        "{prepayment}": f"{installment.prepayment:,.0f}".replace(",", " "),
+        "{months}": str(installment.months),
     }
 
     template_path = os.path.join(

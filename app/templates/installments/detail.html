@@ -193,6 +193,16 @@
                                 <span class="badge bg-secondary">Будущий</span>
                                 {% endif %}
                             </td>
+                            <td class="text-end">
+    {% if row.remaining > 0 %}
+        <span class="text-warning fw-bold">
+            $ {{ '{:,.0f}'.format(row.remaining).replace(',', ' ') }}
+        </span>
+    {% else %}
+        <span class="text-success">$ 0</span>
+    {% endif %}
+</td>
+
                         </tr>
                         {% endfor %}
                         </tbody>

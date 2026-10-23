@@ -249,6 +249,6 @@ def _validate(form):
 
     if form["salary_day"] is not None:
         if form["salary_day"] < 0 or form["salary_day"] > 31:
-            errors.append("День зарплаты должен быть от 0 до 31")
+            errors.append("День оплаты должен быть от 0 до 31")
 
     return errors
