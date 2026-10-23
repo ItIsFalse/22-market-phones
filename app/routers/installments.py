@@ -1,7 +1,11 @@
+import os
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
+from io import BytesIO
 
+from docx import Document
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
+from flask import send_file
 from flask_login import login_required
 from sqlalchemy import or_
 
@@ -11,11 +15,6 @@ from app.models import (
     Phone, Customer, CashAccount, Currency,
 )
 from app.services.cash import apply_transaction, get_default_account
-import os
-from io import BytesIO
-
-from docx import Document
-from flask import send_file
 
 installments_bp = Blueprint("installments", __name__, url_prefix="/installments")
 
@@ -201,8 +200,6 @@ def _calc_summary(currency, q=""):
     }
 
 
-
-
 @installments_bp.route("/new", methods=["GET", "POST"])
 @login_required
 def new_installment():
@@ -293,6 +290,7 @@ def new_installment():
                 prepayment=form["prepayment"],
                 percent=form["percent"],
                 months=form["months"],
+                started_at=form["started_at"],
                 currency=Currency.USD,
             )
             db.session.add(installment)
@@ -509,6 +507,7 @@ def add_payment(installment_id):
     flash("Платёж внесён", "success")
     return redirect(url_for("installments.installment_detail", installment_id=installment.id))
 
+
 @installments_bp.route("/<int:installment_id>/payment/<int:payment_id>/edit", methods=["POST"])
 @login_required
 def edit_payment(installment_id, payment_id):
@@ -546,7 +545,8 @@ def edit_payment(installment_id, payment_id):
     temp_debt_left = installment.total_with_percent - (temp_paid_total - Decimal(installment.prepayment))
 
     if temp_debt_left < 0:
-        flash(f"Нельзя внести больше остатка. Максимальная сумма к оплате: ${installment.debt_left + old_amount}", "danger")
+        flash(f"Нельзя внести больше остатка. Максимальная сумма к оплате: ${installment.debt_left + old_amount}",
+              "danger")
         return redirect(url_for("installments.installment_detail", installment_id=installment.id))
 
     # Если это предоплата — обновляем и ее
@@ -595,6 +595,7 @@ def edit_payment(installment_id, payment_id):
 
     return redirect(url_for("installments.installment_detail", installment_id=installment.id))
 
+
 @installments_bp.route("/<int:installment_id>/contract")
 @login_required
 def contract(installment_id):
@@ -638,6 +639,7 @@ def contract(installment_id):
         shop_address=current_app.config.get("SHOP_ADDRESS", ""),
         shop_seller_name=current_app.config.get("ADMIN_FULL_NAME", "Владелец магазина"),
     )
+
 
 @installments_bp.route("/<int:installment_id>/contract.docx")
 @login_required
@@ -733,8 +735,26 @@ def _replace_in_paragraph(paragraph, replacements):
         for run in paragraph.runs[1:]:
             run.text = ""
 
+
+def _parse_start_date(raw):
+    if not raw:
+        return datetime.combine(
+            datetime.utcnow().date(),
+            datetime.min.time()
+        )
+
+    try:
+        return datetime.combine(
+            datetime.strptime(raw, "%Y-%m-%d").date(),
+            datetime.min.time()
+        )
+    except ValueError:
+        return None
+
+
 def _read_form(form):
     """Считать данные формы."""
+
     def val(key, default=""):
         return (form.get(key) or default).strip()
 
@@ -763,6 +783,8 @@ def _read_form(form):
         "prepayment": to_decimal("prepayment"),
         "percent": to_decimal("percent"),
         "months": to_int("months"),
+        "started_at": _parse_start_date(val("started_at")),
+        "started_at_raw": val("started_at") or datetime.utcnow().date().isoformat(),
         "cash_account_id": to_int("cash_account_id"),
         "price_raw": val("price"),
         "prepayment_raw": val("prepayment"),
@@ -787,5 +809,6 @@ def _validate(form):
         errors.append("Процент должен быть числом ≥ 0")
     if form["months"] is None or form["months"] < 1:
         errors.append("Срок рассрочки — целое число месяцев ≥ 1")
-
+    if form["started_at"] is None:
+        errors.append("Выберите корректную дату начала рассрочки")
     return errors

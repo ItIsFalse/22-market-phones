@@ -16,23 +16,23 @@
                 <h1 class="h4 mb-4">Новая рассрочка</h1>
 
                 {% if not phones %}
-                    <div class="alert alert-warning">
-                        Нет телефонов в наличии. Сначала добавьте закупку.
-                    </div>
+                <div class="alert alert-warning">
+                    Нет телефонов в наличии. Сначала добавьте закупку.
+                </div>
                 {% endif %}
 
                 {% if not customers_json %}
-                    <div class="alert alert-warning">
-                        Нет покупателей. Сначала добавьте покупателя
-                        <a href="{{ url_for('customers.new_customer') }}">здесь</a>.
-                    </div>
+                <div class="alert alert-warning">
+                    Нет покупателей. Сначала добавьте покупателя
+                    <a href="{{ url_for('customers.new_customer') }}">здесь</a>.
+                </div>
                 {% endif %}
 
                 {% if not usd_accounts %}
-                    <div class="alert alert-warning">
-                        Нет USD-кассы. Создайте счёт в разделе
-                        <a href="{{ url_for('cash.list_accounts') }}">Касса</a>.
-                    </div>
+                <div class="alert alert-warning">
+                    Нет USD-кассы. Создайте счёт в разделе
+                    <a href="{{ url_for('cash.list_accounts') }}">Касса</a>.
+                </div>
                 {% endif %}
 
                 <form method="post">
@@ -69,7 +69,24 @@
                             <ul class="phone-suggestions"></ul>
                         </div>
                     </div>
+                    <div class="mb-3">
+                        <label for="started_at" class="form-label">
+                            Дата начала рассрочки
+                        </label>
 
+                        <input
+                                type="date"
+                                id="started_at"
+                                name="started_at"
+                                class="form-control"
+                                required
+                                value="{{ form_data.get('started_at_raw', '') }}"
+                        >
+
+                        <div class="form-text">
+                            Дата начала расчёта ежемесячных платежей.
+                        </div>
+                    </div>
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
                             <label class="form-label">Цена продажи (USD)</label>
@@ -100,10 +117,12 @@
                         <label class="form-label">Касса для предоплаты</label>
                         <select name="cash_account_id" class="form-select" required>
                             {% for acc in usd_accounts %}
-                                <option value="{{ acc.id }}"
-                                    {% if form_data.get('cash_account_id') == acc.id or (not form_data.get('cash_account_id') and default_account and acc.id == default_account.id) %}selected{% endif %}>
-                                    {{ acc.name }}
-                                </option>
+                            <option value="{{ acc.id }}"
+                                    {% if form_data.get(
+                            'cash_account_id') == acc.id or (not form_data.get('cash_account_id') and default_account
+                            and acc.id == default_account.id) %}selected{% endif %}>
+                            {{ acc.name }}
+                            </option>
                             {% endfor %}
                         </select>
                     </div>
