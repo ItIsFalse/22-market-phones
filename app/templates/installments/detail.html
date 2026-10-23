@@ -58,9 +58,9 @@
                          style="width: {{ progress }}%"></div>
                 </div>
                 <div class="text-muted small mt-1">
-                    $ {{ '{:,.0f}'.format(installment.paid_total - installment.prepayment).replace(',', ' ') }}
+                    $ {{ '{:,.0f}'.format(installment.paid_total).replace(',', ' ') }}
                     из
-                    $ {{ '{:,.0f}'.format(installment.total_with_percent).replace(',', ' ') }}
+                    $ {{ '{:,.0f}'.format(installment.total_with_percent + installment.prepayment).replace(',', ' ') }}
                 </div>
             </div>
 
@@ -141,6 +141,10 @@
                 <div class="d-flex justify-content-between small">
                     <span class="text-muted">Процент</span>
                     <span>{{ installment.percent }} %</span>
+                </div>
+                <div class="d-flex justify-content-between small">
+                    <span class="text-muted">Цена - предоплата</span>
+                    <span>$ {{ '{:,.0f}'.format(installment.price-installment.prepayment).replace(',', ' ') }}</span>
                 </div>
                 <div class="d-flex justify-content-between small">
                     <span class="text-muted">Срок</span>

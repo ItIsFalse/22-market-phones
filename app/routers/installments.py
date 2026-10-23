@@ -78,57 +78,6 @@ def list_installments():
     )
 
 
-@installments_bp.route("/summary/")
-@login_required
-def summary():
-    """Сводка по рассрочкам с поиском."""
-    cur = (request.args.get("currency") or "USD").strip().upper()
-    if cur not in ("USD", "UZS", "ALL"):
-        cur = "USD"
-
-    q = (request.args.get("q") or "").strip()
-
-    if cur == "ALL":
-        usd = _calc_summary(Currency.USD, q)
-        uzs = _calc_summary(Currency.UZS, q)
-
-        collected_usd = usd["collected"]
-        collected_uzs = uzs["collected"]
-        pending_usd = usd["pending"]
-        pending_uzs = uzs["pending"]
-        overdue_usd = usd["overdue"]
-        overdue_uzs = uzs["overdue"]
-        closed_count = usd["closed"] + uzs["closed"]
-        active_count = usd["active"] + uzs["active"]
-        installments = _filtered_installments(q, None)
-    else:
-        data = _calc_summary(cur, q)
-
-        collected_usd = data["collected"] if cur == Currency.USD else Decimal("0")
-        collected_uzs = data["collected"] if cur == Currency.UZS else Decimal("0")
-        pending_usd = data["pending"] if cur == Currency.USD else Decimal("0")
-        pending_uzs = data["pending"] if cur == Currency.UZS else Decimal("0")
-        overdue_usd = data["overdue"] if cur == Currency.USD else Decimal("0")
-        overdue_uzs = data["overdue"] if cur == Currency.UZS else Decimal("0")
-        closed_count = data["closed"]
-        active_count = data["active"]
-
-        installments = _filtered_installments(q, cur)
-
-    return render_template(
-        "installments/summary.html",
-        cur=cur,
-        q=q,
-        collected_usd=collected_usd,
-        collected_uzs=collected_uzs,
-        pending_usd=pending_usd,
-        pending_uzs=pending_uzs,
-        overdue_usd=overdue_usd,
-        overdue_uzs=overdue_uzs,
-        closed_count=closed_count,
-        active_count=active_count,
-        installments=installments,
-    )
 
 
 def _filtered_installments(q, currency):
@@ -159,30 +108,30 @@ def _filtered_installments(q, currency):
 
 
 def _calc_summary(currency, q=""):
-    """Считает 4 цифры для одной валюты с учётом поиска."""
+    """Считает статистику по всем выданным рассрочкам."""
     installments = _filtered_installments(q, currency)
-
-    collected = Decimal("0")
-    for inst in installments:
-        for p in inst.payments:
-            collected += Decimal(p.amount)
-
-    pending = Decimal("0")
+    cost = Decimal("0")
+    price_sum = Decimal("0")
+    total_sales = Decimal("0")
     overdue = Decimal("0")
-    closed_count = 0
-    active_count = 0
+    profit = Decimal("0")
     today = datetime.utcnow().date()
 
     for inst in installments:
-        if inst.is_closed:
-            closed_count += 1
-        else:
-            active_count += 1
+        # 1. Закупочная стоимость
+        if inst.phone and inst.phone.purchase:
+            cost += Decimal(inst.phone.purchase.price or 0)
 
-        left = inst.debt_left
-        if left > 0:
-            pending += left
+        # 2. Сумма цены, выставленной в рассрочку (без процентов)
+        price_sum += Decimal(inst.price)
 
+        # 3. Общая сумма к получению (с процентами)
+        total_sales += Decimal(inst.total_with_percent) + Decimal(inst.prepayment)
+
+        # 4. Чистый доход от процентов
+        profit += (Decimal(inst.price) - Decimal(inst.prepayment)) * (Decimal(inst.percent) / Decimal("100"))
+
+        # 5. Просрочка
         schedule = inst.payment_schedule
         due_rows = [row for row in schedule if row["due_date"].date() < today]
         should_paid = sum((row["amount"] for row in due_rows), Decimal("0"))
@@ -192,13 +141,69 @@ def _calc_summary(currency, q=""):
             overdue += diff
 
     return {
-        "collected": collected,
-        "pending": pending,
+        "cost": cost,
+        "price": price_sum,
+        "pending": total_sales,
         "overdue": overdue,
-        "closed": closed_count,
-        "active": active_count,
+        "profit": profit,
+        "active": len(installments),
     }
 
+
+@installments_bp.route("/summary/")
+@login_required
+def summary():
+    """Сводка по рассрочкам с поиском."""
+    cur = (request.args.get("currency") or "USD").strip().upper()
+    if cur not in ("USD", "UZS", "ALL"):
+        cur = "USD"
+
+    q = (request.args.get("q") or "").strip()
+
+    if cur == "ALL":
+        usd = _calc_summary(Currency.USD, q)
+        uzs = _calc_summary(Currency.UZS, q)
+
+        cost_usd, cost_uzs = usd["cost"], uzs["cost"]
+        price_usd, price_uzs = usd["price"], uzs["price"]
+        pending_usd, pending_uzs = usd["pending"], uzs["pending"]
+        overdue_usd, overdue_uzs = usd["overdue"], uzs["overdue"]
+        profit_usd, profit_uzs = usd["profit"], uzs["profit"]
+        active_count = usd["active"] + uzs["active"]
+        installments = _filtered_installments(q, None)
+    else:
+        data = _calc_summary(cur, q)
+
+        cost_usd = data["cost"] if cur == Currency.USD else Decimal("0")
+        cost_uzs = data["cost"] if cur == Currency.UZS else Decimal("0")
+        price_usd = data["price"] if cur == Currency.USD else Decimal("0")
+        price_uzs = data["price"] if cur == Currency.UZS else Decimal("0")
+        pending_usd = data["pending"] if cur == Currency.USD else Decimal("0")
+        pending_uzs = data["pending"] if cur == Currency.UZS else Decimal("0")
+        overdue_usd = data["overdue"] if cur == Currency.USD else Decimal("0")
+        overdue_uzs = data["overdue"] if cur == Currency.UZS else Decimal("0")
+        profit_usd = data["profit"] if cur == Currency.USD else Decimal("0")
+        profit_uzs = data["profit"] if cur == Currency.UZS else Decimal("0")
+        active_count = data["active"]
+        installments = _filtered_installments(q, cur)
+
+    return render_template(
+        "installments/summary.html",
+        cur=cur,
+        q=q,
+        cost_usd=cost_usd,
+        cost_uzs=cost_uzs,
+        price_usd=price_usd,
+        price_uzs=price_uzs,
+        pending_usd=pending_usd,
+        pending_uzs=pending_uzs,
+        overdue_usd=overdue_usd,
+        overdue_uzs=overdue_uzs,
+        profit_usd=profit_usd,
+        profit_uzs=profit_uzs,
+        active_count=active_count,
+        installments=installments,
+    )
 
 @installments_bp.route("/new", methods=["GET", "POST"])
 @login_required
@@ -340,7 +345,6 @@ def new_installment():
 
     return render_template("installments/form.html", form_data=form_data, **ctx)
 
-
 @installments_bp.route("/<int:installment_id>")
 @login_required
 def installment_detail(installment_id):
@@ -357,8 +361,14 @@ def installment_detail(installment_id):
     default_account = usd_accounts[0] if usd_accounts else None
 
     # --- Прогресс оплаты ---
-    total = installment.total_with_percent
-    paid = installment.paid_total - Decimal(installment.prepayment)  # без предоплаты
+    # Общая сумма договора = Итого по графику + Предоплата
+    total = installment.total_with_percent + Decimal(installment.prepayment)
+    # Оплачено = все платежи (для прогресс-бара)
+    paid = installment.paid_total
+
+    # Оплачено БЕЗ предоплаты (для графика платежей)
+    paid_no_prepayment = paid - Decimal(installment.prepayment)
+
     if total and total > 0:
         progress = int((paid / total) * 100)
         if progress > 100:
@@ -372,7 +382,7 @@ def installment_detail(installment_id):
     schedule = installment.payment_schedule
     today = datetime.utcnow().date()
 
-    # сколько уже оплачено (без предоплаты)
+    # сколько уже оплачено (БЕЗ учета предоплаты)
     paid_so_far = Decimal("0")
     schedule_with_status = []
     next_payment = None
@@ -381,10 +391,10 @@ def installment_detail(installment_id):
         due_date = row["due_date"].date()
         amount = Decimal(row["amount"])
 
-        # Сколько из общей оплаты приходится на этот месяц
+        # Сколько из общей оплаты приходится на этот месяц (без предоплаты)
         paid_for_this = max(
             Decimal("0"),
-            min(amount, paid - paid_so_far)
+            min(amount, paid_no_prepayment - paid_so_far)
         )
         remaining_for_this = max(
             Decimal("0"),
