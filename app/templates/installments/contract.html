@@ -100,7 +100,7 @@
     <strong>{{ '{:,.0f}'.format(installment.monthly_payment).replace(',', ' ') }} $</strong>
     AQSH dollaridan to‘lab borishiga savdolashdim. Telefonni o‘z aybim bilan
     yo‘qotib yoki buzub qo‘ygan holatda ham to‘lovni har oyning
-    <strong>{{ salary_day }} ( QAYSI KUNDAN )</strong> sanasidan ya’ni
+    <strong>{{ salary_day }}</strong> sanasidan ya’ni
     <strong>{{ first_payment_date.strftime('%d.%m.%Y') if first_payment_date else '—' }}</strong> dan
     <strong>{{ last_payment_date.strftime('%d.%m.%Y') if last_payment_date else '—' }}</strong> gacha
     to‘lab boraman.
