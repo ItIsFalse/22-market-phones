@@ -4,17 +4,28 @@
 
 {% block content %}
 
-<div class="d-flex justify-content-between align-items-center mb-2">
+<div class="d-flex justify-content-between align-items-center mb-3 gap-2 flex-wrap">
     <a href="{{ url_for('installments.list_installments') }}"
-       class="text-decoration-none small text-muted">
+       class="btn btn-sm btn-outline-secondary">
         &larr; К списку рассрочек
     </a>
-    <div>
+
+    <div class="d-flex align-items-center gap-2">
         {% if installment.is_closed %}
-        <span class="badge bg-success">Оплачено полностью</span>
+            <span class="badge bg-success py-2 px-3">✔ Оплачено полностью</span>
         {% else %}
-        <span class="badge bg-warning text-dark">Активна</span>
+            <span class="badge bg-warning text-dark py-2 px-3">● Активна</span>
         {% endif %}
+
+        <form method="POST"
+              action="{{ url_for('installments.delete_installment',
+                        installment_id=installment.id) }}"
+              onsubmit="return confirm('Удалить рассрочку? Баланс кассы будет скорректирован.');"
+              class="m-0">
+            <button type="submit" class="btn btn-sm btn-outline-danger">
+                🗑 Удалить
+            </button>
+        </form>
     </div>
 </div>
 
@@ -173,6 +184,7 @@
                             <th>Срок</th>
                             <th class="text-end">Сумма</th>
                             <th style="width: 100px;">Статус</th>
+                            <th class="text-end">Осталось за месяц</th>
                         </tr>
                         </thead>
                         <tbody>
@@ -194,14 +206,14 @@
                                 {% endif %}
                             </td>
                             <td class="text-end">
-    {% if row.remaining > 0 %}
-        <span class="text-warning fw-bold">
+                                {% if row.remaining > 0 %}
+                                <span class="text-warning fw-bold">
             $ {{ '{:,.0f}'.format(row.remaining).replace(',', ' ') }}
         </span>
-    {% else %}
-        <span class="text-success">$ 0</span>
-    {% endif %}
-</td>
+                                {% else %}
+                                <span class="text-success">$ 0</span>
+                                {% endif %}
+                            </td>
 
                         </tr>
                         {% endfor %}

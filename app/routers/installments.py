@@ -12,7 +12,7 @@ from sqlalchemy import or_
 from app.extensions import db
 from app.models import (
     Installment, InstallmentPayment,
-    Phone, Customer, CashAccount, Currency,
+    Phone, Customer, CashAccount, CashTransaction, Currency
 )
 from app.services.cash import apply_transaction, get_default_account
 
@@ -434,6 +434,73 @@ def installment_detail(installment_id):
         schedule_with_status=schedule_with_status,
         next_payment=next_payment,
     )
+
+
+@installments_bp.route("/<int:installment_id>/delete", methods=["POST"])
+@login_required
+def delete_installment(installment_id):
+    installment = Installment.query.get_or_404(installment_id)
+    payments = installment.payments.all()
+    used_tx_ids = set()
+
+    try:
+        for payment in payments:
+            transactions = CashTransaction.query.filter_by(
+                payment_id=payment.id
+            ).all()
+
+            # Поддержка старых записей без payment_id
+            if not transactions:
+                source_types = [
+                    "installment_prepayment",
+                    "installment_payment",
+                ]
+                candidates = CashTransaction.query.filter(
+                    CashTransaction.source_id == installment.id,
+                    CashTransaction.source_type.in_(source_types),
+                ).all()
+
+                transactions = [
+                    tx for tx in candidates
+                    if tx.id not in used_tx_ids
+                       and tx.account_id == payment.cash_account_id
+                       and Decimal(tx.amount) == Decimal(payment.amount)
+                ][:1]
+
+            for tx in transactions:
+                if tx.id in used_tx_ids:
+                    continue
+
+                used_tx_ids.add(tx.id)
+
+                reverse_type = (
+                    "expense" if tx.type == "income" else "income"
+                )
+
+                apply_transaction(
+                    account=tx.account,
+                    type_=reverse_type,
+                    amount=tx.amount,
+                    description=f"Отмена рассрочки #{installment.id}, "
+                                f"платёж #{payment.id}",
+                    source_type="installment_delete",
+                    source_id=installment.id,
+                )
+
+        if installment.phone:
+            installment.phone.status = "in_stock"
+
+        db.session.delete(installment)
+        db.session.commit()
+
+        flash("Рассрочка удалена, телефон возвращён в наличие.", "success")
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.exception("Ошибка удаления рассрочки")
+        flash("Не удалось удалить рассрочку. Изменения отменены.", "danger")
+
+    return redirect(url_for("installments.list_installments"))
 
 
 @installments_bp.route("/<int:installment_id>/pay", methods=["POST"])
