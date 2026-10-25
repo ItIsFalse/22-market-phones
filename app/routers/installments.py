@@ -78,8 +78,6 @@ def list_installments():
     )
 
 
-
-
 def _filtered_installments(q, currency):
     """Возвращает отфильтрованный список рассрочек."""
     from app.models import PhonePurchase
@@ -115,6 +113,7 @@ def _calc_summary(currency, q=""):
     total_sales = Decimal("0")
     overdue = Decimal("0")
     profit = Decimal("0")
+    current_debt = Decimal("0")
     today = datetime.utcnow().date()
 
     for inst in installments:
@@ -140,12 +139,16 @@ def _calc_summary(currency, q=""):
         if diff > 0:
             overdue += diff
 
+        # 6. Текущий долг (то, что клиент еще не выплатил)
+        current_debt += max(Decimal("0"), Decimal(inst.debt_left))
+
     return {
         "cost": cost,
         "price": price_sum,
         "pending": total_sales,
         "overdue": overdue,
         "profit": profit,
+        "current_debt": current_debt,  # <--- Добавили
         "active": len(installments),
     }
 
@@ -169,6 +172,10 @@ def summary():
         pending_usd, pending_uzs = usd["pending"], uzs["pending"]
         overdue_usd, overdue_uzs = usd["overdue"], uzs["overdue"]
         profit_usd, profit_uzs = usd["profit"], uzs["profit"]
+
+        # 👇 ДОБАВИТЬ ВОТ ЭТУ СТРОКУ
+        current_debt_usd, current_debt_uzs = usd["current_debt"], uzs["current_debt"]
+
         active_count = usd["active"] + uzs["active"]
         installments = _filtered_installments(q, None)
     else:
@@ -184,6 +191,11 @@ def summary():
         overdue_uzs = data["overdue"] if cur == Currency.UZS else Decimal("0")
         profit_usd = data["profit"] if cur == Currency.USD else Decimal("0")
         profit_uzs = data["profit"] if cur == Currency.UZS else Decimal("0")
+
+        # 👇 ДОБАВИТЬ ВОТ ЭТИ 2 СТРОКИ
+        current_debt_usd = data["current_debt"] if cur == Currency.USD else Decimal("0")
+        current_debt_uzs = data["current_debt"] if cur == Currency.UZS else Decimal("0")
+
         active_count = data["active"]
         installments = _filtered_installments(q, cur)
 
@@ -201,9 +213,12 @@ def summary():
         overdue_uzs=overdue_uzs,
         profit_usd=profit_usd,
         profit_uzs=profit_uzs,
+        current_debt_usd=current_debt_usd,
+        current_debt_uzs=current_debt_uzs,
         active_count=active_count,
         installments=installments,
     )
+
 
 @installments_bp.route("/new", methods=["GET", "POST"])
 @login_required
@@ -344,6 +359,7 @@ def new_installment():
                 form_data["phone_display"] += f" · {extra}"
 
     return render_template("installments/form.html", form_data=form_data, **ctx)
+
 
 @installments_bp.route("/<int:installment_id>")
 @login_required
