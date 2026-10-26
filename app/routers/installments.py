@@ -121,11 +121,11 @@ def _calc_summary(currency, q=""):
         if inst.phone and inst.phone.purchase:
             cost += Decimal(inst.phone.purchase.price or 0)
 
-        # 2. Сумма цены, выставленной в рассрочку (без процентов)
-        price_sum += Decimal(inst.price)
+        # 2. Сумма, на которую начисляются проценты (Цена - Предоплата)
+        price_sum += (Decimal(inst.price) - Decimal(inst.prepayment))
 
-        # 3. Общая сумма к получению (с процентами)
-        total_sales += Decimal(inst.total_with_percent) + Decimal(inst.prepayment)
+        # 3. Остаток с процентами (без учета предоплаты)
+        total_sales += Decimal(inst.total_with_percent)
 
         # 4. Чистый доход от процентов
         profit += (Decimal(inst.price) - Decimal(inst.prepayment)) * (Decimal(inst.percent) / Decimal("100"))
@@ -621,7 +621,9 @@ def edit_payment(installment_id, payment_id):
     from app.models import CashTransaction
 
     installment = Installment.query.get_or_404(installment_id)
-    payment = InstallmentPayment.query.filter_by(id=payment_id, installment_id=installment.id).first_or_404()
+    payment = InstallmentPayment.query.filter_by(
+        id=payment_id, installment_id=installment.id
+    ).first_or_404()
 
     amount_raw = (request.form.get("amount") or "").strip()
     comment = (request.form.get("comment") or "").strip()
@@ -643,55 +645,62 @@ def edit_payment(installment_id, payment_id):
         flash("У платежа нет привязанной кассы", "danger")
         return redirect(url_for("installments.installment_detail", installment_id=installment.id))
 
-    # === ПРОВЕРКА НА ПЕРЕПЛАТУ ===
-    # 1. Вычисляем, какой будет долг, если мы применим новую сумму
-    # Текущий paid_total включает старую сумму платежа
-    temp_paid_total = installment.paid_total - old_amount + new_amount
-    # Итоговая сумма к оплате с процентами (без учета предоплаты, так как она уже в paid_total)
-    temp_debt_left = installment.total_with_percent - (temp_paid_total - Decimal(installment.prepayment))
-
-    if temp_debt_left < 0:
-        flash(f"Нельзя внести больше остатка. Максимальная сумма к оплате: ${installment.debt_left + old_amount}",
-              "danger")
-        return redirect(url_for("installments.installment_detail", installment_id=installment.id))
-
-    # Если это предоплата — обновляем и ее
     is_prepayment = (payment.comment == "Предоплата")
 
+    # Проверка: предоплата не больше цены
+    if is_prepayment and new_amount > Decimal(installment.price):
+        flash("Предоплата не может быть больше цены", "danger")
+        return redirect(url_for("installments.installment_detail", installment_id=installment.id))
+
+    # Проверка: не переплатить по остатку
+    # Считаем, каким станет debt_left после изменения
+    temp_paid_total = installment.paid_total - old_amount + new_amount
+    temp_prepayment = new_amount if is_prepayment else Decimal(installment.prepayment)
+    temp_debt_left = installment.total_with_percent - (temp_paid_total - temp_prepayment)
+
+    if temp_debt_left < 0:
+        flash(
+            f"Нельзя внести больше остатка. "
+            f"Максимальная сумма к оплате: ${installment.debt_left + old_amount}",
+            "danger",
+        )
+        return redirect(url_for("installments.installment_detail", installment_id=installment.id))
+
     try:
-        # 1. Находим транзакцию в кассе по payment.id
-        tx = CashTransaction.query.filter_by(payment_id=payment.id).first()
+        # Корректировка кассы через apply_transaction (разница)
+        diff = new_amount - old_amount
+        if diff != 0:
+            if diff > 0:
+                apply_transaction(
+                    account=account,
+                    type_="income",
+                    amount=diff,
+                    description=f"Корректировка платежа #{payment.id} по рассрочке #{installment.id}",
+                    source_type="installment_payment_edit",
+                    source_id=installment.id,
+                    payment_id=payment.id,
+                )
+            else:
+                apply_transaction(
+                    account=account,
+                    type_="expense",
+                    amount=-diff,
+                    description=f"Корректировка платежа #{payment.id} по рассрочке #{installment.id}",
+                    source_type="installment_payment_edit",
+                    source_id=installment.id,
+                    payment_id=payment.id,
+                )
 
-        if tx:
-            diff = new_amount - old_amount
-            tx.amount = new_amount
-            account.balance = Decimal(account.balance) + diff
-        else:
-            account.balance = Decimal(account.balance) - old_amount
-            account.balance = Decimal(account.balance) + new_amount
-            apply_transaction(
-                account=account,
-                type_="income",
-                amount=new_amount,
-                description=f"Платёж по рассрочке #{installment.id}",
-                source_type="installment_payment",
-                source_id=installment.id,
-                payment_id=payment.id,
-            )
-
-        # 2. Обновляем сам платёж
+        # Обновляем сам платёж
         payment.amount = new_amount
         payment.comment = comment
 
-        # 3. Если это была предоплата, обновляем поле в самой рассрочке
+        # Если это была предоплата — обновляем поле в рассрочке
         if is_prepayment:
             installment.prepayment = new_amount
 
-        # 4. Пересчитываем закрытие (temp_debt_left уже проверен выше)
-        if temp_debt_left <= 0:
-            installment.is_closed = True
-        else:
-            installment.is_closed = False
+        # Пересчитываем статус закрытия по актуальному debt_left
+        installment.is_closed = installment.debt_left <= 0
 
         db.session.commit()
         flash("Платёж обновлён, касса пересчитана", "success")

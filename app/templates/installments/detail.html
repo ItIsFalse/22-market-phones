@@ -12,9 +12,9 @@
 
     <div class="d-flex align-items-center gap-2">
         {% if installment.is_closed %}
-            <span class="badge bg-success py-2 px-3">✔ Оплачено полностью</span>
+        <span class="badge bg-success py-2 px-3">✔ Оплачено полностью</span>
         {% else %}
-            <span class="badge bg-warning text-dark py-2 px-3">● Активна</span>
+        <span class="badge bg-primary py-2 px-3">● Активна</span>
         {% endif %}
 
         <form method="POST"
@@ -69,12 +69,10 @@
                 <div class="fs-5 fw-bold {% if installment.debt_left > 0 %}text-danger{% else %}text-success{% endif %}">
                     $ {{ '{:,.0f}'.format(installment.debt_left).replace(',', ' ') }}
                 </div>
-                {% if next_payment %}
-                <div class="text-muted small">
-                    След. {{ next_payment.due_date.strftime('%d.%m') }} · ${{
-                    '{:,.0f}'.format(next_payment.amount).replace(',', ' ') }}
+                <div class="text-success small fw-bold">
+                    Прибыль: $ {{ '{:,.0f}'.format((installment.price - installment.prepayment) * (installment.percent /
+                    100)).replace(',', ' ') }}
                 </div>
-                {% endif %}
             </div>
         </div>
     </div>
@@ -139,12 +137,12 @@
                     <span>$ {{ '{:,.0f}'.format(installment.prepayment).replace(',', ' ') }}</span>
                 </div>
                 <div class="d-flex justify-content-between small">
-                    <span class="text-muted">Процент</span>
-                    <span>{{ installment.percent }} %</span>
-                </div>
-                <div class="d-flex justify-content-between small">
                     <span class="text-muted">Цена - предоплата</span>
                     <span>$ {{ '{:,.0f}'.format(installment.price-installment.prepayment).replace(',', ' ') }}</span>
+                </div>
+                <div class="d-flex justify-content-between small">
+                    <span class="text-muted">Процент</span>
+                    <span>{{ installment.percent }} %</span>
                 </div>
                 <div class="d-flex justify-content-between small">
                     <span class="text-muted">Срок</span>
@@ -154,9 +152,10 @@
                     <span class="text-muted">Итого с %</span>
                     <span class="fw-bold">$ {{ '{:,.0f}'.format(installment.total_with_percent).replace(',', ' ') }}</span>
                 </div>
+                {# Новая строка: прибыль вместо "Оплачено" #}
                 <div class="d-flex justify-content-between small">
-                    <span class="text-muted">Оплачено</span>
-                    <span class="text-success fw-bold">$ {{ '{:,.0f}'.format(installment.paid_total).replace(',', ' ') }}</span>
+                    <span class="text-muted">Прибыль (проценты)</span>
+                    <span class="text-success fw-bold">$ {{ '{:,.0f}'.format((installment.price - installment.prepayment) * (installment.percent / 100)).replace(',', ' ') }}</span>
                 </div>
             </div>
         </div>

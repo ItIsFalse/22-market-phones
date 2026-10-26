@@ -9,9 +9,7 @@ from app.extensions import db
 from app.models import PhonePurchase, Phone, CashAccount, Currency, CashTransaction
 from app.services.cash import apply_transaction
 
-
 purchases_bp = Blueprint("purchases", __name__, url_prefix="/purchases")
-
 
 PRESET_BRANDS = ["Apple", "Samsung", "Xiaomi", "Huawei", "Oppo"]
 PRESET_STORAGE = ["16", "32", "64", "128", "256", "512", "1024"]
@@ -351,9 +349,8 @@ def purchase_price(purchase_id):
             # Обновляем описание (на случай, если поменялось название телефона)
             tx.description = f"Закупка: {purchase.brand} {purchase.model}"
         else:
-            # Если транзакции нет (старые данные)
-            account.balance = Decimal(account.balance) + old_price
-            account.balance = Decimal(account.balance) - new_price
+            # Если транзакции нет (старые данные) — создаём новую,
+            # apply_transaction сам скорректирует баланс.
             apply_transaction(
                 account=account,
                 type_="expense",
@@ -415,6 +412,7 @@ def purchase_delete(purchase_id):
 
 def _read_form(form):
     """Считать данные формы в обычный dict."""
+
     def val(key, default=""):
         return (form.get(key) or default).strip()
 

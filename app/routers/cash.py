@@ -74,7 +74,7 @@ def account_detail(account_id):
     account = CashAccount.query.get_or_404(account_id)
 
     # === Фильтры ===
-    tx_type = (request.args.get("tx_type") or "").strip()      # income / expense / ""
+    tx_type = (request.args.get("tx_type") or "").strip()  # income / expense / ""
     tx_source = (request.args.get("tx_source") or "").strip()  # manual / purchase / sale / installment / ""
 
     query = CashTransaction.query.filter_by(account_id=account.id)
@@ -94,7 +94,8 @@ def account_detail(account_id):
     elif tx_source == "installment":
         query = query.filter(
             CashTransaction.source_type.in_(
-                ["installment_prepayment", "installment_payment"]
+                ["installment_prepayment", "installment_payment", "installment_payment_edit"]
+
             )
         )
 

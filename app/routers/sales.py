@@ -1,5 +1,6 @@
-from decimal import Decimal, InvalidOperation
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
+
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required
 from sqlalchemy import or_
@@ -7,7 +8,6 @@ from sqlalchemy import or_
 from app.extensions import db
 from app.models import Phone, Sale, CashAccount, Currency, CashTransaction
 from app.services.cash import apply_transaction
-
 
 sales_bp = Blueprint("sales", __name__, url_prefix="/sales")
 
@@ -171,6 +171,7 @@ def sale_detail(sale_id):
     sale = Sale.query.get_or_404(sale_id)
     return render_template("sales/detail.html", sale=sale)
 
+
 @sales_bp.route("/<int:sale_id>/edit", methods=["GET", "POST"])
 @login_required
 def sale_edit(sale_id):
@@ -209,14 +210,12 @@ def sale_edit(sale_id):
                 ).first()
 
                 if tx:
-                    # Обновляем сумму транзакции и баланс кассы на разницу
                     diff = new_price - old_price
                     tx.amount = new_price
                     account.balance = Decimal(account.balance) + diff
                 else:
-                    # Если транзакции нет (старые данные) — создаем
-                    account.balance = Decimal(account.balance) - old_price
-                    account.balance = Decimal(account.balance) + new_price
+                    # Если транзакции нет (старые данные) — создаём новую,
+                    # apply_transaction сам зачислит сумму на баланс.
                     apply_transaction(
                         account=account,
                         type_="income",
@@ -318,6 +317,7 @@ def sale_price(sale_id):
     flash("Цена обновлена, касса пересчитана", "success")
     return redirect(url_for("sales.sale_detail", sale_id=sale.id))
 
+
 @sales_bp.route("/<int:sale_id>/delete", methods=["POST"])
 @login_required
 def sale_delete(sale_id):
@@ -350,8 +350,10 @@ def sale_delete(sale_id):
     flash("Продажа отменена, телефон возвращён в наличие", "info")
     return redirect(url_for("sales.list_sales"))
 
+
 def _read_form(form):
     """Считать данные формы."""
+
     def val(key, default=""):
         return (form.get(key) or default).strip()
 
