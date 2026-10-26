@@ -19,28 +19,28 @@
 
 <div class="d-flex flex-wrap gap-2 mb-4 align-items-center">
     <div class="btn-group">
-        <a href="{{ url_for('installments.summary', currency='USD', q=q) }}"
-           class="btn {% if cur == 'USD' %}btn-primary{% else %}btn-outline-primary{% endif %}">
-            USD
-        </a>
-        <a href="{{ url_for('installments.summary', currency='ALL', q=q) }}"
-           class="btn {% if cur == 'ALL' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+        <a href="{{ url_for('installments.summary', q=q, status='') }}"
+           class="btn btn-sm {% if not status %}btn-dark{% else %}btn-outline-dark{% endif %}">
             Все
         </a>
-        <a href="{{ url_for('installments.summary', currency='UZS', q=q) }}"
-           class="btn {% if cur == 'UZS' %}btn-primary{% else %}btn-outline-primary{% endif %}">
-            UZS
+        <a href="{{ url_for('installments.summary', q=q, status='active') }}"
+           class="btn btn-sm {% if status == 'active' %}btn-dark{% else %}btn-outline-dark{% endif %}">
+            Активные
+        </a>
+        <a href="{{ url_for('installments.summary', q=q, status='closed') }}"
+           class="btn btn-sm {% if status == 'closed' %}btn-dark{% else %}btn-outline-dark{% endif %}">
+            Закрытые
         </a>
     </div>
 
     <form method="get" class="d-flex gap-2 flex-grow-1" style="max-width: 500px;">
-        <input type="hidden" name="currency" value="{{ cur }}">
+        <input type="hidden" name="status" value="{{ status }}">
         <input type="text" name="q" class="form-control form-control-sm"
                placeholder="Поиск: ФИО, телефон, бренд, модель, IMEI…"
                value="{{ q }}">
         <button type="submit" class="btn btn-sm btn-primary">Найти</button>
-        {% if q %}
-        <a href="{{ url_for('installments.summary', currency=cur) }}"
+        {% if q or status %}
+        <a href="{{ url_for('installments.summary') }}"
            class="btn btn-sm btn-outline-secondary">Сбросить</a>
         {% endif %}
     </form>
@@ -172,16 +172,17 @@
                     <th>Дата</th>
                     <th>Телефон</th>
                     <th>Покупатель</th>
-                    <th class="text-end">Цена</th>
+                    <th class="text-end">Цена (Предоплата)</th>
+                    <th class="text-end">Цена - предоплата</th>
                     <th class="text-end">Оплачено</th>
                     <th class="text-end">Остаток</th>
                     <th>Статус</th>
-                    <th></th>
                 </tr>
                 </thead>
                 <tbody>
                 {% for inst in installments %}
-                <tr>
+                <tr data-href="{{ url_for('installments.installment_detail', installment_id=inst.id) }}"
+                    style="cursor: pointer;">
                     <td class="text-nowrap text-muted small">
                         {{ inst.started_at.strftime('%d.%m.%Y') }}
                     </td>
@@ -193,14 +194,34 @@
                         </a>
                         <div class="text-muted small">{{ inst.customer.phone }}</div>
                     </td>
+
+                    {# 1. Колонка Цена (полная) + Предоплата #}
                     <td class="text-end">
-                        {% set calc_price = inst.price - inst.prepayment %}
                         {% if inst.currency == 'USD' %}
-                        $ {{ '{:,.0f}'.format(calc_price).replace(',', ' ') }}
+                        $ {{ '{:,.0f}'.format(inst.price).replace(',', ' ') }}
                         {% else %}
-                        {{ '{:,.0f}'.format(calc_price).replace(',', ' ') }} сум
+                        {{ '{:,.0f}'.format(inst.price).replace(',', ' ') }} сум
+                        {% endif %}
+                        <div class="text-muted small" style="font-size: 0.75rem;">
+                            (взнос:
+                            {% if inst.currency == 'USD' %}
+                            ${{ '{:,.0f}'.format(inst.prepayment).replace(',', ' ') }}
+                            {% else %}
+                            {{ '{:,.0f}'.format(inst.prepayment).replace(',', ' ') }}
+                            {% endif %})
+                        </div>
+                    </td>
+
+                    {# 2. Колонка Цена - предоплата (база для %) #}
+                    <td class="text-end">
+                        {% set base_price = inst.price - inst.prepayment %}
+                        {% if inst.currency == 'USD' %}
+                        $ {{ '{:,.0f}'.format(base_price).replace(',', ' ') }}
+                        {% else %}
+                        {{ '{:,.0f}'.format(base_price).replace(',', ' ') }} сум
                         {% endif %}
                     </td>
+
                     <td class="text-end text-success">
                         {% if inst.currency == 'USD' %}
                         $ {{ '{:,.0f}'.format(inst.paid_total).replace(',', ' ') }}
@@ -212,12 +233,12 @@
                         {% set left = inst.debt_left %}
                         {% if left > 0 %}
                         <span class="text-danger fw-semibold">
-                                    {% if inst.currency == 'USD' %}
-                                        $ {{ '{:,.0f}'.format(left).replace(',', ' ') }}
-                                    {% else %}
-                                        {{ '{:,.0f}'.format(left).replace(',', ' ') }} сум
-                                    {% endif %}
-                                </span>
+                            {% if inst.currency == 'USD' %}
+                                $ {{ '{:,.0f}'.format(left).replace(',', ' ') }}
+                            {% else %}
+                                {{ '{:,.0f}'.format(left).replace(',', ' ') }} сум
+                            {% endif %}
+                        </span>
                         {% else %}
                         <span class="text-success">0</span>
                         {% endif %}
@@ -229,10 +250,7 @@
                         <span class="badge bg-info text-dark">Активна</span>
                         {% endif %}
                     </td>
-                    <td class="text-end">
-                        <a href="{{ url_for('installments.installment_detail', installment_id=inst.id) }}"
-                           class="btn btn-sm btn-outline-secondary">Открыть</a>
-                    </td>
+
                 </tr>
                 {% endfor %}
                 </tbody>

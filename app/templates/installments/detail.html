@@ -12,9 +12,9 @@
 
     <div class="d-flex align-items-center gap-2">
         {% if installment.is_closed %}
-        <span class="badge bg-success py-2 px-3">✔ Оплачено полностью</span>
+        <span class="badge bg-success py-2 px-3">Оплачено полностью</span>
         {% else %}
-        <span class="badge bg-primary py-2 px-3">● Активна</span>
+        <span class="badge bg-primary py-2 px-3">Активна</span>
         {% endif %}
 
         <form method="POST"
@@ -23,7 +23,7 @@
               onsubmit="return confirm('Удалить рассрочку? Баланс кассы будет скорректирован.');"
               class="m-0">
             <button type="submit" class="btn btn-sm btn-outline-danger">
-                🗑 Удалить
+                Удалить
             </button>
         </form>
     </div>
@@ -164,11 +164,11 @@
             <a href="{{ url_for('installments.contract', installment_id=installment.id) }}"
                target="_blank"
                class="btn btn-sm btn-outline-primary">
-                📄 Посмотреть договор
+                Посмотреть договор
             </a>
             <a href="{{ url_for('installments.contract_docx', installment_id=installment.id) }}"
                class="btn btn-sm btn-outline-success">
-                ⬇️ Скачать .docx
+                Скачать .docx
             </a>
         </div>
     </div>

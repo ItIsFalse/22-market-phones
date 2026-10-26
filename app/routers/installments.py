@@ -78,7 +78,7 @@ def list_installments():
     )
 
 
-def _filtered_installments(q, currency):
+def _filtered_installments(q, currency, status=None):
     """Возвращает отфильтрованный список рассрочек."""
     from app.models import PhonePurchase
 
@@ -91,6 +91,11 @@ def _filtered_installments(q, currency):
 
     if currency in Currency.CHOICES:
         query = query.filter(Installment.currency == currency)
+
+    if status == "active":
+        query = query.filter(Installment.is_closed.is_(False))
+    elif status == "closed":
+        query = query.filter(Installment.is_closed.is_(True))
 
     if q:
         like = f"%{q}%"
@@ -105,9 +110,8 @@ def _filtered_installments(q, currency):
     return query.order_by(Installment.started_at.desc()).all()
 
 
-def _calc_summary(currency, q=""):
-    """Считает статистику по всем выданным рассрочкам."""
-    installments = _filtered_installments(q, currency)
+def _calc_summary(currency, q="", status=None):
+    installments = _filtered_installments(q, currency, status)
     cost = Decimal("0")
     price_sum = Decimal("0")
     total_sales = Decimal("0")
@@ -148,7 +152,7 @@ def _calc_summary(currency, q=""):
         "pending": total_sales,
         "overdue": overdue,
         "profit": profit,
-        "current_debt": current_debt,  # <--- Добавили
+        "current_debt": current_debt,
         "active": len(installments),
     }
 
@@ -157,15 +161,13 @@ def _calc_summary(currency, q=""):
 @login_required
 def summary():
     """Сводка по рассрочкам с поиском."""
-    cur = (request.args.get("currency") or "USD").strip().upper()
-    if cur not in ("USD", "UZS", "ALL"):
-        cur = "USD"
-
+    cur = "USD"  # Жестко ставим доллары
+    status = (request.args.get("status") or "").strip()
     q = (request.args.get("q") or "").strip()
 
     if cur == "ALL":
-        usd = _calc_summary(Currency.USD, q)
-        uzs = _calc_summary(Currency.UZS, q)
+        usd = _calc_summary(Currency.USD, q, status)
+        uzs = _calc_summary(Currency.UZS, q, status)
 
         cost_usd, cost_uzs = usd["cost"], uzs["cost"]
         price_usd, price_uzs = usd["price"], uzs["price"]
@@ -173,13 +175,12 @@ def summary():
         overdue_usd, overdue_uzs = usd["overdue"], uzs["overdue"]
         profit_usd, profit_uzs = usd["profit"], uzs["profit"]
 
-        # 👇 ДОБАВИТЬ ВОТ ЭТУ СТРОКУ
         current_debt_usd, current_debt_uzs = usd["current_debt"], uzs["current_debt"]
 
         active_count = usd["active"] + uzs["active"]
-        installments = _filtered_installments(q, None)
+        installments = _filtered_installments(q, None, status)
     else:
-        data = _calc_summary(cur, q)
+        data = _calc_summary(cur, q, status)
 
         cost_usd = data["cost"] if cur == Currency.USD else Decimal("0")
         cost_uzs = data["cost"] if cur == Currency.UZS else Decimal("0")
@@ -192,17 +193,17 @@ def summary():
         profit_usd = data["profit"] if cur == Currency.USD else Decimal("0")
         profit_uzs = data["profit"] if cur == Currency.UZS else Decimal("0")
 
-        # 👇 ДОБАВИТЬ ВОТ ЭТИ 2 СТРОКИ
         current_debt_usd = data["current_debt"] if cur == Currency.USD else Decimal("0")
         current_debt_uzs = data["current_debt"] if cur == Currency.UZS else Decimal("0")
 
         active_count = data["active"]
-        installments = _filtered_installments(q, cur)
+        installments = _filtered_installments(q, cur, status)
 
     return render_template(
         "installments/summary.html",
         cur=cur,
         q=q,
+        status=status,  # Передаем статус в шаблон
         cost_usd=cost_usd,
         cost_uzs=cost_uzs,
         price_usd=price_usd,
@@ -618,7 +619,6 @@ def add_payment(installment_id):
 @login_required
 def edit_payment(installment_id, payment_id):
     """Редактирование суммы и комментария платежа с защитой от переплаты."""
-    from app.models import CashTransaction
 
     installment = Installment.query.get_or_404(installment_id)
     payment = InstallmentPayment.query.filter_by(

@@ -55,7 +55,8 @@ def index():
     installments_total = Decimal("0")     # всего с процентом
     installments_pending = Decimal("0")   # неоплаченный остаток
     for inst in active_installments:
-        installments_total += Decimal(inst.total_with_percent)
+        # Считаем сумму (Цена - Предоплата), как в сводке
+        installments_total += (Decimal(inst.price) - Decimal(inst.prepayment))
         left = inst.debt_left
         if left > 0:
             installments_pending += left
