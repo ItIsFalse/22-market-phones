@@ -80,7 +80,7 @@
                                 name="started_at"
                                 class="form-control"
                                 required
-                                value="{{ form_data.get('started_at_raw', '') }}"
+                                value="{{ form_data.get('started_at_raw') or today_str }}"
                         >
 
                         <div class="form-text">
@@ -115,16 +115,8 @@
 
                     <div class="mb-4">
                         <label class="form-label">Касса для предоплаты</label>
-                        <select name="cash_account_id" class="form-select" required>
-                            {% for acc in usd_accounts %}
-                            <option value="{{ acc.id }}"
-                                    {% if form_data.get(
-                            'cash_account_id') == acc.id or (not form_data.get('cash_account_id') and default_account
-                            and acc.id == default_account.id) %}selected{% endif %}>
-                            {{ acc.name }}
-                            </option>
-                            {% endfor %}
-                        </select>
+                        <div class="form-control bg-light" readonly>Сейф USD (автоматически)</div>
+                        <input type="hidden" name="cash_account_id" value="{{ default_account.id if default_account else '' }}">
                     </div>
 
                     <button type="submit" class="btn btn-primary w-100"

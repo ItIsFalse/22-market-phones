@@ -224,13 +224,17 @@ def _read_form(form):
         except InvalidOperation:
             return None
 
+    # Делаем первую букву заглавной (остальные не трогаем)
+    def capitalize_first(s):
+        return s[0].upper() + s[1:] if s else s
+
     return {
-        "full_name": val("full_name"),
+        "full_name": capitalize_first(val("full_name")),
         "phone": val("phone"),
         "phone_extra": val("phone_extra"),
-        "passport": val("passport"),
+        "passport": val("passport").upper(), # Паспорт всегда в верхнем регистре
         "pinfl": val("pinfl"),
-        "address": val("address"),
+        "address": capitalize_first(val("address")),
         "has_permanent_registration": val("has_permanent_registration") == "on",
         "salary_day": to_int("salary_day"),
         "note": val("note"),
@@ -241,7 +245,9 @@ def _read_form(form):
 
 def _validate(form):
     """Проверка формы."""
+    import re
     errors = []
+
     if not form["full_name"]:
         errors.append("Укажите ФИО")
     if not form["phone"]:
@@ -250,5 +256,15 @@ def _validate(form):
     if form["salary_day"] is not None:
         if form["salary_day"] < 0 or form["salary_day"] > 31:
             errors.append("День оплаты должен быть от 0 до 31")
+
+    # Валидация паспорта (2 буквы + 7 цифр)
+    if form["passport"]:
+        if not re.match(r"^[A-Z]{2}\d{7}$", form["passport"]):
+            errors.append("Паспорт должен быть в формате AA1234567 (2 заглавные буквы и 7 цифр)")
+
+    # Валидация ПИНФЛ (ровно 13 цифр)
+    if form["pinfl"]:
+        if not re.match(r"^\d{13}$", form["pinfl"]):
+            errors.append("ПИНФЛ должен состоять ровно из 13 цифр")
 
     return errors

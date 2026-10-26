@@ -351,6 +351,103 @@ def sale_delete(sale_id):
     return redirect(url_for("sales.list_sales"))
 
 
+@sales_bp.route("/summary/")
+@login_required
+def summary():
+    """Сводка по простым продажам."""
+    from datetime import datetime, timedelta
+    from decimal import Decimal
+
+    # 1. Получаем параметры фильтров
+    q = (request.args.get("q") or "").strip()
+    date_from_raw = (request.args.get("from") or "").strip()
+    date_to_raw = (request.args.get("to") or "").strip()
+
+    # 2. Дефолтные даты (текущий сезон)
+    today = datetime.utcnow().date()
+    year = today.year
+    month = today.month
+
+    if 6 <= month <= 8:  # Лето
+        default_from = datetime(year, 6, 1).date()
+        default_to = datetime(year, 8, 31).date()
+    elif 9 <= month <= 11:  # Осень
+        default_from = datetime(year, 9, 1).date()
+        default_to = datetime(year, 11, 30).date()
+    elif month == 12:  # Зима (начало)
+        default_from = datetime(year, 12, 1).date()
+        default_to = datetime(year + 1, 2, 28).date()
+    elif month in (1, 2):  # Зима (конец)
+        default_from = datetime(year - 1, 12, 1).date()
+        default_to = datetime(year, 2, 28).date()
+    else:  # Весна (3, 4, 5)
+        default_from = datetime(year, 3, 1).date()
+        default_to = datetime(year, 5, 31).date()
+
+    try:
+        date_from = datetime.strptime(date_from_raw, "%Y-%m-%d").date() if date_from_raw else default_from
+    except ValueError:
+        date_from = default_from
+
+    try:
+        date_to = datetime.strptime(date_to_raw, "%Y-%m-%d").date() if date_to_raw else default_to
+    except ValueError:
+        date_to = default_to
+
+    # Конец дня
+    date_to_end = datetime.combine(date_to, datetime.max.time())
+
+    # 3. Строим запрос
+    query = Sale.query.join(Phone, Sale.phone_id == Phone.id)
+
+    # Фильтр по датам
+    query = query.filter(Sale.sold_at >= datetime.combine(date_from, datetime.min.time()))
+    query = query.filter(Sale.sold_at <= date_to_end)
+
+    # Поиск
+    if q:
+        like = f"%{q}%"
+        query = query.filter(or_(
+            Phone.brand.ilike(like),
+            Phone.model.ilike(like),
+            Phone.imei.ilike(like),
+            Sale.client_name.ilike(like),
+            Sale.client_contact.ilike(like),
+        ))
+
+    # Сортировка (новые сначала)
+    sales = query.order_by(Sale.sold_at.desc()).all()
+
+    # 4. Считаем статистику
+    total_sales_usd = Decimal("0")
+    total_margin_usd = Decimal("0")
+    total_purchase_usd = Decimal("0")  # <--- Новая переменная
+    sales_count = len(sales)
+
+    for s in sales:
+        total_sales_usd += Decimal(s.price)
+
+        # Считаем закупку и наценку
+        purchase = s.phone.purchase if s.phone else None
+        if purchase:
+            total_purchase_usd += Decimal(purchase.price)  # <--- Суммируем закупку
+            if s.currency == purchase.currency:
+                margin = Decimal(s.price) - Decimal(purchase.price)
+                total_margin_usd += margin
+
+    return render_template(
+        "sales/summary.html",
+        sales=sales,
+        q=q,
+        date_from=date_from,
+        date_to=date_to,
+        total_sales_usd=total_sales_usd,
+        total_margin_usd=total_margin_usd,
+        total_purchase_usd=total_purchase_usd, # <--- Добавить
+        sales_count=sales_count,
+    )
+
+
 def _read_form(form):
     """Считать данные формы."""
 

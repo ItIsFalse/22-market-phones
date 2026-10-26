@@ -89,16 +89,9 @@
                                        placeholder="Цена *"
                                        value="{{ form_data.get('price_raw', '') }}">
                             </div>
-                            <div class="col-md-8">
-                                <select name="cash_account_id" class="form-select form-select-sm" required>
-                                    <option value="">— касса —</option>
-                                    {% for acc in accounts %}
-                                        <option value="{{ acc.id }}"
-                                            {% if form_data.get('cash_account_id') == acc.id or (not form_data.get('cash_account_id') and acc.id == default_account_id) %}selected{% endif %}>
-                                            {{ acc.name }}
-                                        </option>
-                                    {% endfor %}
-                                </select>
+                            <div class="col-md-8 d-flex align-items-center">
+                                <span class="text-muted small">Оплата с кассы: <strong>Сейф USD</strong></span>
+                                <input type="hidden" name="cash_account_id" value="{{ default_account_id }}">
                             </div>
                         </div>
                     </div>

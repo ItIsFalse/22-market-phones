@@ -40,12 +40,16 @@
                         <div class="col-md-6">
                             <label class="form-label">Паспорт / ID</label>
                             <input type="text" name="passport" class="form-control"
+                                   placeholder="AA1234567" maxlength="9"
                                    value="{{ form_data.get('passport', '') }}">
+                            <div class="form-text small">Формат: 2 буквы + 7 цифр</div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">ПИНФЛ</label>
                             <input type="text" name="pinfl" class="form-control"
+                                   placeholder="13 цифр" maxlength="13"
                                    value="{{ form_data.get('pinfl', '') }}">
+                            <div class="form-text small">Ровно 13 цифр</div>
                         </div>
                     </div>
 

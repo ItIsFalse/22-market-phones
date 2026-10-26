@@ -5,15 +5,10 @@
 {% block content %}
 
 <div class="d-flex flex-wrap gap-2 mb-4">
-    <a href="{{ url_for('purchases.new_purchase') }}" class="btn btn-primary">
-        Новая закупка
-    </a>
-    <a href="{{ url_for('sales.new_sale') }}" class="btn btn-success">
-        Новая продажа
-    </a>
-    <a href="{{ url_for('installments.summary') }}" class="btn btn-outline-primary">
-        Рассрочки - сводка
-    </a>
+    <a href="{{ url_for('purchases.new_purchase') }}" class="btn btn-primary">Новая закупка</a>
+    <a href="{{ url_for('sales.new_sale') }}" class="btn btn-success">Новая продажа</a>
+    <a href="{{ url_for('installments.summary') }}" class="btn btn-outline-primary">Рассрочки - сводка</a>
+    <a href="{{ url_for('sales.summary') }}" class="btn btn-outline-success">Продажи - сводка</a>
 </div>
 
 <div class="row g-3 mb-4">
@@ -102,12 +97,11 @@
                         <th class="text-end">Должно быть</th>
                         <th class="text-end">Оплачено</th>
                         <th class="text-end">Просрочка</th>
-                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
                 {% for row in due_installments %}
-                    <tr>
+                    <tr data-href="{{ url_for('installments.installment_detail', installment_id=row.installment.id) }}" style="cursor: pointer;">
                         <td>
                             <a href="{{ url_for('customers.customer_detail', customer_id=row.installment.customer.id) }}"
                                class="text-decoration-none">
@@ -120,10 +114,7 @@
                         <td class="text-end">$ {{ '{:,.0f}'.format(row.should_paid).replace(',', ' ') }}</td>
                         <td class="text-end text-success">$ {{ '{:,.0f}'.format(row.actually_paid).replace(',', ' ') }}</td>
                         <td class="text-end fw-bold text-danger">$ {{ '{:,.0f}'.format(row.overdue).replace(',', ' ') }}</td>
-                        <td class="text-end">
-                            <a href="{{ url_for('installments.installment_detail', installment_id=row.installment.id) }}"
-                               class="btn btn-sm btn-primary">Внести</a>
-                        </td>
+
                     </tr>
                 {% endfor %}
                 </tbody>

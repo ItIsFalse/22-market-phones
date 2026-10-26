@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}Сводка по продажам — 22 Market Phone{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <a href="{{ url_for('main.index') }}" class="text-decoration-none small text-muted">
+            &larr; На главную
+        </a>
+        <h1 class="h3 mb-0 mt-2">Сводка по продажам</h1>
+    </div>
+    <a href="{{ url_for('sales.new_sale') }}" class="btn btn-primary">
+        Новая продажа
+    </a>
+</div>
+
+<form method="get" class="card shadow-sm mb-4">
+    <div class="card-body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small mb-1">От</label>
+                <input type="date" name="from" class="form-control form-control-sm"
+                       value="{{ date_from.strftime('%Y-%m-%d') }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small mb-1">До</label>
+                <input type="date" name="to" class="form-control form-control-sm"
+                       value="{{ date_to.strftime('%Y-%m-%d') }}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small mb-1">Поиск</label>
+                <input type="text" name="q" class="form-control form-control-sm"
+                       placeholder="Бренд, модель, IMEI, клиент..."
+                       value="{{ q }}">
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-sm btn-primary flex-grow-1">Найти</button>
+                <a href="{{ url_for('sales.summary') }}" class="btn btn-sm btn-outline-secondary">Сброс</a>
+            </div>
+        </div>
+    </div>
+</form>
+
+<div class="row g-3 mb-4">
+    <!-- 1. Цена покупки -->
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">Цена покупки</div>
+                <div class="fs-4 fw-bold text-danger">$ {{ '{:,.0f}'.format(total_purchase_usd).replace(',', ' ') }}
+                </div>
+                <div class="text-muted small">Затраты на закупку (продано: {{ sales_count }} шт)</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. Сумма продаж -->
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">Сумма продаж</div>
+                <div class="fs-4 fw-bold text-primary">
+                    $ {{ '{:,.0f}'.format(total_sales_usd).replace(',', ' ') }}
+                </div>
+                <div class="text-muted small">Общая выручка</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Наценка -->
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">Наценка</div>
+                <div class="fs-4 fw-bold text-success">
+                    $ {{ '{:,.0f}'.format(total_margin_usd).replace(',', ' ') }}
+                </div>
+                <div class="text-muted small">Чистая прибыль с продаж</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <h2 class="h6 mb-3">История продаж</h2>
+
+        {% if sales %}
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0">
+                <thead class="table-light">
+                <tr>
+                    <th>Дата</th>
+                    <th>Телефон</th>
+                    <th>IMEI</th>
+                    <th>Клиент</th>
+                    <th class="text-end">Закупка</th>
+                    <th class="text-end">Цена продажи</th>
+                    <th class="text-end">Наценка</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for s in sales %}
+                <tr data-href="{{ url_for('sales.sale_detail', sale_id=s.id) }}" style="cursor: pointer;">
+                    <td class="text-nowrap text-muted small">
+                        {{ s.sold_at.strftime('%d.%m.%Y %H:%M') }}
+                    </td>
+                    <td class="fw-semibold">{{ s.phone.brand }} {{ s.phone.model }}</td>
+                    <td class="text-muted small">{{ s.phone.imei or '—' }}</td>
+                    <td>
+                        {{ s.client_name or '—' }}
+                        {% if s.client_contact %}
+                        <div class="text-muted small">{{ s.client_contact }}</div>
+                        {% endif %}
+                    </td>
+                    <td class="text-end text-muted">
+                        {% if s.phone.purchase %}
+                        $ {{ '{:,.0f}'.format(s.phone.purchase.price).replace(',', ' ') }}
+                        {% else %}
+                        —
+                        {% endif %}
+                    </td>
+                    <td class="text-end fw-bold text-primary">
+                        $ {{ '{:,.0f}'.format(s.price).replace(',', ' ') }}
+                    </td>
+                    <td class="text-end fw-semibold text-success">
+                        {% if s.currency == s.phone.purchase_currency %}
+                        {% set margin = s.price - s.phone.purchase_price %}
+                        $ {{ '{:,.0f}'.format(margin).replace(',', ' ') }}
+                        {% else %}
+                        <span class="text-muted small">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted mb-0">За выбранный период продаж не найдено.</p>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

@@ -265,6 +265,7 @@ def new_installment():
         customers_json=customers_json,
         usd_accounts=usd_accounts,
         default_account=default_account,
+        today_str=datetime.utcnow().strftime("%Y-%m-%d"), # <--- Добавить
     )
 
     if request.method == "POST":
